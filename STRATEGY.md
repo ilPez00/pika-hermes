@@ -168,7 +168,63 @@ PokeClaw 應該做嘅：
 
 ---
 
-## 9. Priorities — next 6 months
+## 8.5. Reality check — Solo + multi-AI ≠ Stainless team，但 leverage 比想像大
+
+Stainless 有 20 個 specialized engineers。Nicole 係 1 個人 + **多個 AI agents (Claude + Codex + subagents 並行)**。
+
+**Solo + multi-AI 嘅 effective headcount 喺 2026-05 已經係 ~10 人 team output**（Claude + Codex + parallel subagents handle research / spec / implementation / QA scripts / debug / docs / outreach 分流）。**AI capability 每 6 個月 compound 一次**，所以 effective leverage 12 個月後可能 20+。
+
+### AI 進化曲線 + bottleneck shrinkage
+
+今日仲係 bottleneck 嘅嘢，6-12 個月後可能解決：
+
+| Bottleneck | 今日狀況 | 6 個月後（Claude 5 / GPT-6 era）| 12 個月後 |
+|---|---|---|---|
+| Architecture decisions | partial | AI suggest + reason at senior level | AI lead with human review |
+| Cross-OEM bug repro | ❌ 冇 emulator | Synthetic vendor service modeling 可能出現 | LLM-driven device fuzzing |
+| Sales / outreach | partial | AI draft + agent-driven cold outreach | Autonomous deal sourcing |
+| Domain expertise | AI 知 docs 唔深 | AI 讀 source code 同 production logs 深過人 | AI = senior Android architect equivalent |
+| Physical hardware | 唔解到 | 唔解到（physics ceiling）| 唔解到 |
+
+**真正 permanent ceiling 得一個：物理硬件 / 真實 OEM device QA**。其他 bottleneck 都 shrink 緊。
+
+### Target 估值 range（optimistic + AI-evolution-aware）
+
+| | Stainless | **PokeClaw (solo + multi-AI, 2027 view)** |
+|---|---|---|
+| Effective headcount | 20 | **10 today → 20+ by 2027** |
+| 估值 anchor | $300M strategic | **$50M-300M strategic** |
+| Timeline | 4 年 | **12-24 個月** |
+
+**Exit shape — 從中位數推上去**：
+
+- **$5-20M acqui-hire** — fallback minimum，唔當 target
+- **$50-100M strategic acquisition** — **realistic base case**（traction + 1-2 OEM partnership + active maintenance）
+- **$300M+ Stainless-tier** — upside case（真係 protocol owner + Anthropic / Samsung 真係搶）
+
+**Working assumption**：base case `$50-100M strategic acquisition by 2027-Q2`，唔係 acqui-hire。AI 繼續 evolve = 更激進更可行。
+
+### Realistic playbook references (solo + AI era)
+
+- **Antirez (Redis)** — solo for years，traction 夠先 sell to Redis Labs，賣咗繼續做 founding engineer
+- **Caleb Porzio (Alpine.js)** — solo + sponsorship + GitHub Stars，唔急 sell
+- **DHH (Rails)** — solo build → anchor 公司 (37signals)
+
+### Frame 改變嘅含義
+
+**舊 frame**：「成為 mobile agent protocol owner」→ 需要 team + community 推 spec，one-person band 做唔到
+**新 frame**：「acqui-hire candidate — codebase + Nicole 本人，被買家當 founding engineer」
+
+呢個改變晒 priorities：
+- ❌ **不再投入** protocol spec push (需要 community/team bandwidth Nicole 冇)
+- ❌ **不再嘗試**親自解每個 Xiaomi-specific bug（解唔到，acquirer 都唔 expect）
+- ✅ **核心 signal**：active commits（break silence）、capable solo shipping、systematic architecture documentation
+- ✅ **目標買家對話**：2-3 inbound 同 Anthropic / Samsung / Xiaomi 嘅 product / DevRel
+- ✅ **YC application 做 forcing function**：即使 reject，pitch 過程 sharpen narrative
+
+---
+
+## 9. Priorities — next 6 months (solo-realistic)
 
 排序 by acquisition-readiness impact：
 
@@ -203,10 +259,10 @@ Hit 0 = consider archive PokeClaw、focus 其他 product
 
 ## 11. Open strategic questions
 
-1. **Acquisition vs YC vs raise**：YC application 係 forcing function 定 distraction？
-2. **Protocol spec time investment**：寫個 PokeClaw-MAP-Spec.md 值唔值得 push community adoption？
-3. **Closed-source Premium tier**：BACKLOG 寫住 Plus/Pro tier — ship 定 hold？OSS-only 對 acquisition 有利，paid SaaS 有自己 revenue 但會降 acquisition appeal
-4. **中國市場分支**：realme / Xiaomi 多 Chinese-language request — fork 一個 China edition 定一個 codebase？
+1. **Acqui-hire vs YC vs lifestyle OSS**：呢 3 個 model fit 邊個？答案決定接落嚟 6 個月 priorities
+2. **Closed-source Premium tier**：BACKLOG 寫住 Plus/Pro tier — ship 定 hold？OSS-only 對 acqui-hire 有利，paid SaaS 有 revenue 但會降 acqui-hire appeal
+3. **中國市場分支**：realme / Xiaomi 多 Chinese-language request — fork 一個 China edition 定一個 codebase？
+4. **Cross-OEM bug 點 communicate 畀 acquirer 知唔係 weakness**：22 個 Xiaomi/Samsung issue 係 unique coverage 嘅 signal，唔係 incomplete fix list — 點 frame？
 
 ---
 
