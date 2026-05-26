@@ -3,6 +3,7 @@
 
 package io.agents.pokeclaw.support
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import io.agents.pokeclaw.AppCapabilityCoordinator
@@ -79,6 +80,13 @@ object DebugReportManager {
             appendLine("- Hardware: ${Build.HARDWARE}")
             appendLine("- Fingerprint: ${Build.FINGERPRINT}")
             appendLine("- Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+            appendLine("- Supported ABIs: ${Build.SUPPORTED_ABIS.joinToString(", ")}")
+            appendLine("- RAM (total): ${getDeviceRamGb(context)} GB")
+            appendLine()
+            appendLine("Local Inference Runtime (#41 / #14 diagnostics)")
+            val openClPaths = detectOpenClLibraryPaths()
+            appendLine("- OpenCL libraries found: ${if (openClPaths.isEmpty()) "(none) — GPU path will not work" else openClPaths.joinToString(", ")}")
+            appendLine("- Backend health: ${LocalBackendHealth.debugStateSummary()}")
             appendLine()
             appendLine("Capabilities")
             appendLine("- Accessibility: ${capabilities.accessibilityStatusLabel}")
@@ -215,5 +223,36 @@ object DebugReportManager {
     private fun formatEpoch(value: Long): String {
         if (value <= 0L) return "(none)"
         return Date(value).toString()
+    }
+
+    /** Returns total device RAM in GB (rounded up). Used in debug summary for GPU/model RAM
+     *  sizing diagnostics (#41 / #14 — OEM bug reporters need to know real RAM vs minRamGb). */
+    private fun getDeviceRamGb(context: Context): Int {
+        return try {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val info = ActivityManager.MemoryInfo()
+            am.getMemoryInfo(info)
+            (info.totalMem / (1024L * 1024L * 1024L)).toInt() + 1
+        } catch (_: Throwable) {
+            -1
+        }
+    }
+
+    /** Probes well-known Android OpenCL driver paths. If none exist the GPU LiteRT path will
+     *  fail at first inference (this is the root cause for issue #14 and the Pixel-8-Pro
+     *  GPU→CPU fallback documented in #41). Returning the actual paths found makes triage
+     *  trivial for non-Pixel OEM reporters. */
+    private fun detectOpenClLibraryPaths(): List<String> {
+        val candidates = listOf(
+            "/system/vendor/lib64/libOpenCL.so",
+            "/system/vendor/lib/libOpenCL.so",
+            "/vendor/lib64/libOpenCL.so",
+            "/vendor/lib/libOpenCL.so",
+            "/system/lib64/libOpenCL.so",
+            "/system/lib/libOpenCL.so",
+        )
+        return candidates.filter {
+            runCatching { File(it).exists() }.getOrDefault(false)
+        }
     }
 }

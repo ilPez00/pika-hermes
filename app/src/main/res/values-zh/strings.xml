@@ -150,6 +150,7 @@
     <string name="cd_task_error">任务失败</string>
     <string name="cd_channel_logo">渠道图标</string>
     <string name="cd_app_logo">应用图标</string>
+    <string name="cd_floating_idle">PokeClaw — 点击聚焦</string>
     <string name="cd_qr_code">二维码</string>
     <string name="cd_toggle_password">显示或隐藏密码</string>
     <string name="cd_copy">复制</string>

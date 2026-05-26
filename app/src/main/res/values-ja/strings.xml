@@ -150,6 +150,7 @@
     <string name="cd_task_error">タスク失敗</string>
     <string name="cd_channel_logo">チャネルロゴ</string>
     <string name="cd_app_logo">アプリロゴ</string>
+    <string name="cd_floating_idle">PokeClaw — タップしてフォーカス</string>
     <string name="cd_qr_code">QRコード</string>
     <string name="cd_toggle_password">パスワードの表示/非表示</string>
     <string name="cd_copy">コピー</string>

@@ -1102,6 +1102,37 @@ adb logcat -d --pid=$(adb shell pidof io.agents.pokeclaw) | grep 'PromptUtils'
 
 ---
 
+## Y. Debug-Report GPU/OpenCL Diagnostics (Issues #41 + #14)
+
+E2E tests for the OEM-bug-triage diagnostic dump added to `DebugReportManager`.
+Goal: when a Xiaomi/Samsung/realme user submits a debug-report.zip, the summary.txt
+should make GPU/OpenCL failures self-diagnosable without back-and-forth.
+
+- [x] **Y1. RAM line present**: `summary.txt` contains `RAM (total): NN GB`. **2026-05-26 PASS Pixel 8 Pro v0.7.0**: shows `RAM (total): 12 GB`
+- [x] **Y2. ABI line present**: `summary.txt` contains `Supported ABIs: ...`. **2026-05-26 PASS Pixel 8 Pro**: shows `Supported ABIs: arm64-v8a`
+- [x] **Y3. OpenCL probe present**: `summary.txt` lists paths where libOpenCL.so was found, or `(none) — GPU path will not work` when no driver is present. **2026-05-26 PASS Pixel 8 Pro**: shows `/system/vendor/lib64/libOpenCL.so, /vendor/lib64/libOpenCL.so` (confirms why Pixel-8-Pro GPU fallback works in #41)
+- [x] **Y4. Backend health summary**: `summary.txt` includes `Backend health:` line from `LocalBackendHealth.debugStateSummary()`. **2026-05-26 PASS Pixel 8 Pro**: `cpuSafe=false, backendPreference=-, reason=-, pendingDevice=-, pendingModel=-, pendingAt=0`
+- [ ] **Y5. OpenCL-missing repro path**: on a device without OpenCL drivers, the line should read `(none) — GPU path will not work`. **Not run — needs non-Pixel device. Code path: `detectOpenClLibraryPaths()` returns `emptyList()` when no candidates exist**
+- [ ] **Y6. GPU failure marker captured**: trigger `LocalBackendHealth.debugForceCpuSafe("test")` → generate debug-report → verify `cpuSafe=true, reason=test` appears in Backend health line. **Not run on device**
+
+### ADB verification commands
+
+```bash
+# Trigger debug-report build via broadcast (no UI needed)
+adb shell am broadcast -p io.agents.pokeclaw -a io.agents.pokeclaw.DEBUG_TASK \
+  --es support_action build_debug_report
+
+# Find latest report
+adb shell run-as io.agents.pokeclaw ls -t /data/user/0/io.agents.pokeclaw/cache/debug_reports/ | head -1
+
+# Pull + extract summary.txt
+ZIP=$(adb shell run-as io.agents.pokeclaw ls -t /data/user/0/io.agents.pokeclaw/cache/debug_reports/ | head -1 | tr -d '\r')
+adb shell run-as io.agents.pokeclaw cat /data/user/0/io.agents.pokeclaw/cache/debug_reports/$ZIP > /tmp/pokeclaw-debug.zip
+unzip -p /tmp/pokeclaw-debug.zip summary.txt | grep -E "RAM|ABI|OpenCL|Backend health"
+```
+
+---
+
 ## X. Custom Local Model URL (Issue #36)
 
 E2E tests for advanced user-supplied custom local model download URLs.
