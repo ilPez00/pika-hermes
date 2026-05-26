@@ -112,6 +112,42 @@ The project was renamed from a `com.apk.claw.android.*` namespace to `io.agents.
 
 When in doubt, grep the source — `grep -rn "com.apk.claw"` should return zero hits in active code. If it returns hits, those are stale and likely broken.
 
+### 9.5. Grant all 6 system permissions via ADB (no manual phone taps needed)
+
+Android 13+ has "restricted settings" that block ADB from enabling Accessibility / Notification-listener style services. The escape hatch is the `ACCESS_RESTRICTED_SETTINGS` appop:
+
+```bash
+PKG=io.agents.pokeclaw
+
+# 1. POST_NOTIFICATIONS (Task Notifications row)
+adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS
+
+# 2. MANAGE_EXTERNAL_STORAGE (File Access row)
+adb shell appops set $PKG MANAGE_EXTERNAL_STORAGE allow
+
+# 3. SYSTEM_ALERT_WINDOW (System Window row)
+adb shell appops set $PKG SYSTEM_ALERT_WINDOW allow
+
+# 4. Battery Whitelist row
+adb shell dumpsys deviceidle whitelist +$PKG
+
+# 5. Notification Access row (NotificationListenerService)
+adb shell cmd notification allow_listener $PKG/io.agents.pokeclaw.service.ClawNotificationListener
+
+# 6. Accessibility Service — REQUIRES the appop bypass FIRST
+adb shell appops set $PKG ACCESS_RESTRICTED_SETTINGS allow
+adb shell settings put secure enabled_accessibility_services $PKG/io.agents.pokeclaw.service.ClawAccessibilityService
+adb shell settings put secure accessibility_enabled 1
+
+# Verify
+adb shell dumpsys accessibility | grep -E "Bound services|Enabled services"
+# Want to see: Bound services:{Service[label=PokeClaw, eventTypes=TYPES_ALL_MASK, ...]}
+```
+
+**Trap:** if you `force-stop` PokeClaw after granting, the Accessibility binding may be lost. Re-run the bypass + `enabled_accessibility_services` write before the next chat-send test.
+
+**Reverse:** clear all granted perms before user testing if you want a fresh-install QA.
+
 ### 10. PokeClaw is a generic mobile-agent harness, NOT a missed-call product
 
 There is a SEPARATE revenue product called `~/MyGithub/missed-call-ai-chatbot-lab`. Missed-call follow-up is its scope, not PokeClaw's. PokeClaw stays generic — 21 tools × 13 rules — per `ARCHITECTURE_DECISIONS.md` D2. Do NOT add per-vertical workflows (missed call, plumber, dentist...) to PokeClaw core. If a generic primitive is needed (e.g. "phone call state read tool"), add it as a tool, not a workflow.
