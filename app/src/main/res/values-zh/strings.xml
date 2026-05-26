@@ -218,4 +218,12 @@
     <string name="global_prompt_hint">应用到每次对话的指令，留空则禁用。</string>
     <string name="global_prompt_not_set">未设置</string>
     <string name="global_prompt_set_status">已设置 (%d 字符)</string>
+
+    <!-- 自定义本地模型 URL (#36) -->
+    <string name="custom_local_model_url_title">自定义本地模型 URL</string>
+    <string name="custom_local_model_url_dialog_title">自定义模型下载 URL</string>
+    <string name="custom_local_model_url_hint">https://… 直接 .litertlm 下载链接。进阶：自定义模型的文件大小校验已放宽。</string>
+    <string name="custom_local_model_url_not_set">未设置</string>
+    <string name="custom_local_model_url_set">已设置自定义 URL</string>
+    <string name="custom_local_model_url_invalid">URL 必须以 http:// 或 https:// 开头</string>
 </resources>

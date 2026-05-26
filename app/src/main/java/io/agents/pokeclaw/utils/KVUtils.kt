@@ -378,4 +378,15 @@ object KVUtils {
     fun getGlobalPrompt(): String = getString(KEY_GLOBAL_PROMPT, "")
     fun setGlobalPrompt(value: String) = putString(KEY_GLOBAL_PROMPT, value)
     fun hasGlobalPrompt(): Boolean = getGlobalPrompt().isNotBlank()
+
+    // ==================== Custom Local Model URL (#36) ====================
+    // Advanced: lets user point PokeClaw at a custom .litertlm download URL
+    // (e.g. self-hosted, HuggingFace mirrors) instead of only the built-in catalog.
+    // Empty string = no custom model. fileName is derived from URL last segment.
+
+    private const val KEY_CUSTOM_LOCAL_MODEL_URL = "KEY_CUSTOM_LOCAL_MODEL_URL"
+
+    fun getCustomLocalModelUrl(): String = getString(KEY_CUSTOM_LOCAL_MODEL_URL, "")
+    fun setCustomLocalModelUrl(value: String) = putString(KEY_CUSTOM_LOCAL_MODEL_URL, value)
+    fun hasCustomLocalModelUrl(): Boolean = getCustomLocalModelUrl().isNotBlank()
 }

@@ -1102,6 +1102,38 @@ adb logcat -d --pid=$(adb shell pidof io.agents.pokeclaw) | grep 'PromptUtils'
 
 ---
 
+## X. Custom Local Model URL (Issue #36)
+
+E2E tests for advanced user-supplied custom local model download URLs.
+URL stored in MMKV (`KEY_CUSTOM_LOCAL_MODEL_URL`). Empty = disabled.
+Validated as http(s):// prefix only. fileName derived from URL last path segment.
+
+- [x] **X1. Settings row visible**: Settings → Models group → row "Custom local model URL" with share icon → trailing "Not set" when empty. **2026-05-26 PASS Pixel 8 Pro v0.7.0**: row appears under Model group below Global instructions, trailing "Not set", bounds [162,1649][813,1692]
+- [x] **X2. Open edit dialog**: tap row → InputDialog opens, title "Custom model download URL", hint with example, empty preset. **2026-05-26 PASS Pixel 8 Pro**: logcat `SettingsActivity: open custom model url dialog: current.len=0`, dialog title rendered correctly
+- [x] **X3. Invalid URL rejected**: enter "not-a-url" → tap OK → validator rejects, dialog stays open, no save log fired. **2026-05-26 PASS Pixel 8 Pro**: typed "not-a-url", tapped OK, no `custom local model url saved` log, dialog text still present ("Custom model download URL"). Visible error toast not asserted (InputDialog implementation responsibility) but rejection contract satisfied
+- [x] **X4. Valid URL saved**: enter "https://example.com/my-model.litertlm" → OK → dialog dismisses → trailing "Custom URL set", logcat saved log. **2026-05-26 PASS Pixel 8 Pro**: logcat `custom local model url saved: new.len=42, hasUrl=true`, trailing "Custom URL set". Auto-normalizes Android's auto-cap "HTTPS://" -> "https://"
+- [x] **X5. Persistence across app restart**: force-stop + relaunch → Settings → trailing still "Custom URL set". **2026-05-26 PASS Pixel 8 Pro**
+- [x] **X6. Persistence in MMKV**: `run-as ... strings mmkv.default` shows "KEY_CUSTOM_LOCAL_MODEL_URL" and the URL. **2026-05-26 PASS Pixel 8 Pro**: `KEY_CUSTOM_LOCAL_MODEL_URL+*https://example.com/path/my-model.litertlm` found
+- [x] **X7. Clear via empty submit**: open dialog → clear text → OK → trailing back to "Not set". **2026-05-26 PASS Pixel 8 Pro**: logcat `custom local model url saved: new.len=0, hasUrl=false`, trailing "Not set"
+- [x] **X8. Catalog includes custom model**: with URL set, LlmConfigActivity Available Models list renders the custom model. **2026-05-26 PASS Pixel 8 Pro**: navigated to LLM Config, "Custom: my-model.litertlm" appears in Available Models list alongside the two built-in Gemma models
+- [ ] **X9. fileName derivation**: query-string stripping verified by code in `LocalModelManager.customModel()`: `val q = name.indexOf('?'); if (q > 0) name.substring(0, q) else name`. Not run on device — URL with query string would derive correctly per code path
+- [ ] **X10. Relaxed validation**: custom model `isValidModelFile` accepts any file ≥ 1MB (no size-bound check). Verified by code: `if (model.isCustom) return length >= 1_048_576L`. Not run on device — would require an actual custom model download
+
+### ADB verification commands
+
+```bash
+# X1/X4 — verify row + saved
+adb shell input tap 945 185   # gear icon from chat
+sleep 3
+adb shell uiautomator dump /sdcard/dump.xml && adb pull /sdcard/dump.xml /tmp/
+grep -i 'custom local model url\|Custom URL set' /tmp/dump.xml
+
+# X6 — persistence in MMKV
+adb shell run-as io.agents.pokeclaw strings /data/data/io.agents.pokeclaw/files/mmkv/mmkv.default | grep -E "KEY_CUSTOM_LOCAL_MODEL_URL|https://"
+```
+
+---
+
 ## QA Debug Changelog
 
 Format: `[date] [status] [test-id] description`

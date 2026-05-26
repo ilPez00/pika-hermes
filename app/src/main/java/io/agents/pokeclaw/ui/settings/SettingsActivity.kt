@@ -61,6 +61,7 @@ class SettingsActivity : BaseActivity() {
     private var permStorage: io.agents.pokeclaw.widget.MenuItem? = null
     private var externalAutomationItem: io.agents.pokeclaw.widget.MenuItem? = null
     private var globalPromptItem: io.agents.pokeclaw.widget.MenuItem? = null
+    private var customModelUrlItem: io.agents.pokeclaw.widget.MenuItem? = null
 
     private val viewModel by lazy {
         ViewModelProvider(this)[SettingsViewModel::class.java]
@@ -143,6 +144,17 @@ class SettingsActivity : BaseActivity() {
             getString(R.string.global_prompt_set_status, current.length)
         }
         globalPromptItem?.setTrailingText(label)
+    }
+
+    /** Refreshes the trailing label on the custom-model-URL row (#36). */
+    private fun refreshCustomModelUrlStatus() {
+        val current = KVUtils.getCustomLocalModelUrl()
+        val label = if (current.isBlank()) {
+            getString(R.string.custom_local_model_url_not_set)
+        } else {
+            getString(R.string.custom_local_model_url_set)
+        }
+        customModelUrlItem?.setTrailingText(label)
     }
 
     private fun initToolbar() {
@@ -361,6 +373,56 @@ class SettingsActivity : BaseActivity() {
         )
         globalPromptItem?.setLeadingIconColor(getColor(R.color.colorTextPrimary))
         refreshGlobalPromptStatus()
+
+        // Custom Local Model URL (#36) — advanced: lets users add their own model download URL
+        customModelUrlItem = modelGroup.addMenuItem(
+            leadingIcon = android.R.drawable.ic_menu_share,
+            title = getString(R.string.custom_local_model_url_title),
+            onClick = {
+                val current = KVUtils.getCustomLocalModelUrl()
+                XLog.i("SettingsActivity", "open custom model url dialog: current.len=${current.length}")
+                InputDialog.show(
+                    context = this@SettingsActivity,
+                    title = getString(R.string.custom_local_model_url_dialog_title),
+                    presetText = current,
+                    hint = getString(R.string.custom_local_model_url_hint),
+                    maxLength = 1000,
+                    inputValidate = { text ->
+                        val lower = text.trim().lowercase()
+                        if (lower.isEmpty()) {
+                            // Empty = clear; allow
+                            io.agents.pokeclaw.widget.InputDialog.ValidateResult(true, null)
+                        } else if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
+                            io.agents.pokeclaw.widget.InputDialog.ValidateResult(
+                                false,
+                                getString(R.string.custom_local_model_url_invalid)
+                            )
+                        } else {
+                            io.agents.pokeclaw.widget.InputDialog.ValidateResult(true, null)
+                        }
+                    },
+                ) { text ->
+                    // Normalize the protocol prefix to lowercase (Android keyboard auto-cap
+                    // can produce "HTTPS://..."). Rest of the URL is case-preserved.
+                    val trimmed = text.trim().let { raw ->
+                        when {
+                            raw.startsWith("HTTPS://", ignoreCase = false) -> "https://" + raw.substring(8)
+                            raw.startsWith("HTTP://", ignoreCase = false) -> "http://" + raw.substring(7)
+                            else -> raw
+                        }
+                    }
+                    KVUtils.setCustomLocalModelUrl(trimmed)
+                    XLog.i(
+                        "SettingsActivity",
+                        "custom local model url saved: new.len=${trimmed.length}, hasUrl=${KVUtils.hasCustomLocalModelUrl()}"
+                    )
+                    refreshCustomModelUrlStatus()
+                }
+            },
+            showDivider = false
+        )
+        customModelUrlItem?.setLeadingIconColor(getColor(R.color.colorTextPrimary))
+        refreshCustomModelUrlStatus()
 
         // Appearance
         val appearanceGroup = findViewById<MenuGroup>(R.id.appearanceGroup)

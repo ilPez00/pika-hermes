@@ -218,4 +218,12 @@
     <string name="global_prompt_hint">すべての会話に適用する指示。空欄で無効。</string>
     <string name="global_prompt_not_set">未設定</string>
     <string name="global_prompt_set_status">設定済み (%d 文字)</string>
+
+    <!-- カスタムローカルモデル URL (#36) -->
+    <string name="custom_local_model_url_title">カスタムローカルモデル URL</string>
+    <string name="custom_local_model_url_dialog_title">カスタムモデルのダウンロード URL</string>
+    <string name="custom_local_model_url_hint">https://… 直接の .litertlm ダウンロード URL。上級者向け：カスタムモデルはサイズ検証を緩和。</string>
+    <string name="custom_local_model_url_not_set">未設定</string>
+    <string name="custom_local_model_url_set">カスタム URL 設定済み</string>
+    <string name="custom_local_model_url_invalid">URL は http:// または https:// で始まる必要があります</string>
 </resources>

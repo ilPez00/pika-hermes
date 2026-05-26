@@ -30,7 +30,11 @@ object LocalModelManager {
         val url: String,
         val fileName: String,
         val sizeBytes: Long,
-        val minRamGb: Int
+        val minRamGb: Int,
+        /** True when this model came from the user-supplied custom URL (#36).
+         *  Custom models skip strict size-bound validation since we don't know
+         *  the expected size up front. */
+        val isCustom: Boolean = false
     )
 
     data class DeviceSupport(
@@ -130,7 +134,7 @@ object LocalModelManager {
 
     fun catalog(context: Context): List<CatalogEntry> {
         val support = deviceSupport(context)
-        return AVAILABLE_MODELS.map { model ->
+        val builtIns = AVAILABLE_MODELS.map { model ->
             CatalogEntry(
                 model = model,
                 isDownloaded = isModelDownloaded(context, model),
@@ -138,6 +142,40 @@ object LocalModelManager {
                 path = getModelPath(context, model),
             )
         }
+        val custom = customModel()?.let { model ->
+            listOf(
+                CatalogEntry(
+                    model = model,
+                    isDownloaded = isModelDownloaded(context, model),
+                    isSupported = true, // user opted in — don't gate on RAM heuristic
+                    path = getModelPath(context, model),
+                )
+            )
+        } ?: emptyList()
+        return builtIns + custom
+    }
+
+    /** Returns a synthetic ModelInfo for the user's custom URL (#36), or null if not set.
+     *  fileName is derived from the URL's last path segment; sizeBytes is unknown (0)
+     *  and validation falls back to a 1MB minimum (see isValidModelFile). */
+    fun customModel(): ModelInfo? {
+        val url = io.agents.pokeclaw.utils.KVUtils.getCustomLocalModelUrl()
+        if (url.isBlank()) return null
+        val fileName = url.substringAfterLast('/').ifBlank { "custom-model.bin" }
+            .let { name ->
+                // Defensive: strip query string if present
+                val q = name.indexOf('?')
+                if (q > 0) name.substring(0, q) else name
+            }
+        return ModelInfo(
+            id = "custom-local",
+            displayName = "Custom: $fileName",
+            url = url,
+            fileName = fileName,
+            sizeBytes = 0L,
+            minRamGb = 0,
+            isCustom = true,
+        )
     }
 
     fun configuredBuiltInModel(localConfig: LocalModelConfig): ModelInfo? {
@@ -535,6 +573,9 @@ object LocalModelManager {
         if (!file.exists()) return false
         val length = file.length()
         if (length <= 0L) return false
+        // Custom user-supplied models have unknown expected size — accept anything
+        // larger than 1MB (anything smaller is almost certainly not a real model).
+        if (model.isCustom) return length >= 1_048_576L
         return length in expectedLowerBound(model)..expectedUpperBound(model)
     }
 
