@@ -38,6 +38,7 @@ Priority: `P0` = blocks users, fix now. `P1` = next up. `P2` = when we get to it
 - [ ] **P3** Rename chat session (H6): pencil icon in sidebar → InputDialog → update title in DB + markdown
 - [ ] **P3** Floating button: use PokeClaw icon instead of "AI" text
 - [ ] **P3** ChatViewModel extraction: move business logic out of ComposeChatActivity god class
+- [ ] **P1** Full i18n refactor for ChatScreen.kt — 75+ user-facing hardcoded English strings (quick task templates, intro text, monitor labels, send/cancel labels) need extracting to strings.xml + zh + ja translation. Surfaced by realme RMX3823 user (#50) wanting "thorough Chinese version". Voice input strings (4 strings) already i18n'd in v0.7.0 as a first slice.
 
 ## QA Gaps
 

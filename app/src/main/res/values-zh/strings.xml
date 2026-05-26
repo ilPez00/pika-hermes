@@ -205,4 +205,10 @@
     <string name="input_dialog_need_more">至少输入%d个字符</string>
     <string name="input_dialog_need_less">最多输入%d个字符</string>
     <string name="input_dialog_no_zero">请输入非零数值</string>
+
+    <!-- 语音输入 (#44) -->
+    <string name="voice_input_button_cd">语音输入</string>
+    <string name="voice_input_prompt">请说话…</string>
+    <string name="voice_input_unavailable">此设备不支持语音识别</string>
+    <string name="voice_input_error">语音输入失败，请重试</string>
 </resources>

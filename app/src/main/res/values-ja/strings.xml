@@ -205,4 +205,10 @@
     <string name="input_dialog_need_more">%d文字以上入力してください</string>
     <string name="input_dialog_need_less">%d文字以内で入力してください</string>
     <string name="input_dialog_no_zero">ゼロ以外の値を入力してください</string>
+
+    <!-- 音声入力 (#44) -->
+    <string name="voice_input_button_cd">音声入力</string>
+    <string name="voice_input_prompt">話してください…</string>
+    <string name="voice_input_unavailable">この端末では音声認識を利用できません</string>
+    <string name="voice_input_error">音声入力に失敗しました。もう一度お試しください</string>
 </resources>
