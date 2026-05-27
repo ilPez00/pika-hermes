@@ -31,6 +31,8 @@ android {
         }
     }
 
+    ndkVersion = "27.0.12077973"
+
     signingConfigs {
         create("release") {
             val props = Properties().apply {
@@ -60,6 +62,20 @@ android {
         buildConfigField("String", "APP_ORIGIN", "\"PokeClaw by agents.io | github.com/agents-io/PokeClaw\"")
         buildConfigField("String", "BUILD_FINGERPRINT", "\"${getBuildFingerprint()}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags("-std=c++17")
+                arguments(
+                    "-DANDROID_STL=c++_shared",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                )
+            }
+        }
     }
 
 
@@ -88,6 +104,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildFeatures {

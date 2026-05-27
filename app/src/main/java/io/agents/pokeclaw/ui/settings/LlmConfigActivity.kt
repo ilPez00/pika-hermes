@@ -27,8 +27,10 @@ import io.agents.pokeclaw.agent.CloudModel
 import io.agents.pokeclaw.agent.CloudProvider
 import io.agents.pokeclaw.agent.ModelPricing
 import io.agents.pokeclaw.agent.llm.ActiveModelMode
+import io.agents.pokeclaw.agent.llm.GgufModelManager
 import io.agents.pokeclaw.agent.llm.LocalModelManager
 import io.agents.pokeclaw.agent.llm.ModelConfigRepository
+import io.agents.pokeclaw.agent.llm.ResolvedModelConfig
 import io.agents.pokeclaw.base.BaseActivity
 import io.agents.pokeclaw.ui.chat.ThemeManager
 import io.agents.pokeclaw.utils.KVUtils
@@ -89,46 +91,70 @@ class LlmConfigActivity : BaseActivity() {
         defaultCloudMeta.setTextColor(Color.parseColor("#8b949e"))
 
         // Apply theme to all CardViews in XML layout
-        val scrollContent = findViewById<LinearLayout>(R.id.layoutModelList)?.parent as? LinearLayout
-        if (scrollContent != null) {
-            for (i in 0 until scrollContent.childCount) {
-                val child = scrollContent.getChildAt(i)
-                if (child is TextView && child.id == View.NO_ID) {
-                    // Section headers ("Active Model", "Available Models", "Cloud LLM")
-                    child.setTextColor(Color.parseColor("#8b949e"))
-                }
-                if (child is CardView) {
-                    child.setCardBackgroundColor(tc.toolbarBg)
-                }
+        val scrollContent = findViewById<ScrollView>(R.id.scrollContent)
+        val innerLayout = scrollContent.getChildAt(0) as LinearLayout
+
+        // Theme section headers and card backgrounds
+        for (i in 0 until innerLayout.childCount) {
+            val child = innerLayout.getChildAt(i)
+            if (child is TextView && child.id == View.NO_ID) {
+                child.setTextColor(Color.parseColor("#8b949e"))
+            }
+            if (child is CardView) {
+                child.setCardBackgroundColor(tc.toolbarBg)
             }
         }
 
+        // ── Inference Mode Selector ──────────────────────────────────────────
+        buildModeSelector(tc, innerLayout)
+
         // Active model — show what is ACTUALLY active based on provider
-        if (resolvedConfig.activeMode == ActiveModelMode.LOCAL) {
-            val activeState = LocalModelManager.resolveActiveModelState(this, resolvedConfig.local)
-            activeModelName.text = activeState.displayName
-            activeModelMeta.text = activeState.metaText
-            activeModelStatus.text = activeState.statusText
-            activeModelStatus.setTextColor(
-                when (activeState.statusKind) {
-                    LocalModelManager.StatusKind.READY -> getColor(R.color.colorSuccessPrimary)
-                    LocalModelManager.StatusKind.WARNING -> getColor(R.color.colorWarningPrimary)
-                    LocalModelManager.StatusKind.NEUTRAL -> Color.parseColor("#8b949e")
+        when (resolvedConfig.activeMode) {
+            ActiveModelMode.LOCAL -> {
+                val activeState = LocalModelManager.resolveActiveModelState(this, resolvedConfig.local)
+                activeModelName.text = activeState.displayName
+                activeModelMeta.text = activeState.metaText
+                activeModelStatus.text = activeState.statusText
+                activeModelStatus.setTextColor(
+                    when (activeState.statusKind) {
+                        LocalModelManager.StatusKind.READY -> getColor(R.color.colorSuccessPrimary)
+                        LocalModelManager.StatusKind.WARNING -> getColor(R.color.colorWarningPrimary)
+                        LocalModelManager.StatusKind.NEUTRAL -> Color.parseColor("#8b949e")
+                    }
+                )
+            }
+            ActiveModelMode.LLAMA -> {
+                val ggufPath = resolvedConfig.local.modelPath
+                if (ggufPath.isNotBlank()) {
+                    val ggufFile = java.io.File(ggufPath)
+                    activeModelName.text = resolvedConfig.local.displayName.ifBlank { ggufFile.nameWithoutExtension }
+                    activeModelMeta.text = "GGUF · On-device (llama.cpp)"
+                    activeModelStatus.text = if (ggufFile.exists()) "● Ready" else "● Missing file"
+                    activeModelStatus.setTextColor(
+                        if (ggufFile.exists()) getColor(R.color.colorSuccessPrimary)
+                        else getColor(R.color.colorWarningPrimary)
+                    )
+                } else {
+                    activeModelName.text = "No GGUF model selected"
+                    activeModelMeta.text = "Download a GGUF model below"
+                    activeModelStatus.text = "● Not configured"
+                    activeModelStatus.setTextColor(Color.parseColor("#8b949e"))
                 }
-            )
-        } else {
-            val cloudModel = resolvedConfig.activeCloud.modelName
-            if (cloudModel.isNotEmpty()) {
-                activeModelName.text = cloudModel
-                val providerName = resolvedConfig.activeCloud.provider.displayName
-                activeModelMeta.text = "$providerName · Cloud"
-                activeModelStatus.text = "● Connected"
-                activeModelStatus.setTextColor(getColor(R.color.colorSuccessPrimary))
-            } else {
-                activeModelName.text = "No model selected"
-                activeModelMeta.text = "Configure a cloud model below"
-                activeModelStatus.text = "● Not configured"
-                activeModelStatus.setTextColor(Color.parseColor("#8b949e"))
+            }
+            ActiveModelMode.CLOUD -> {
+                val cloudModel = resolvedConfig.activeCloud.modelName
+                if (cloudModel.isNotEmpty()) {
+                    activeModelName.text = cloudModel
+                    val providerName = resolvedConfig.activeCloud.provider.displayName
+                    activeModelMeta.text = "$providerName · Cloud"
+                    activeModelStatus.text = "● Connected"
+                    activeModelStatus.setTextColor(getColor(R.color.colorSuccessPrimary))
+                } else {
+                    activeModelName.text = "No model selected"
+                    activeModelMeta.text = "Configure a cloud model below"
+                    activeModelStatus.text = "● Not configured"
+                    activeModelStatus.setTextColor(Color.parseColor("#8b949e"))
+                }
             }
         }
 
@@ -156,11 +182,12 @@ class LlmConfigActivity : BaseActivity() {
             defaultCloudStatus.setTextColor(Color.parseColor("#8b949e"))
         }
 
-        val activeLocalModelId = if (resolvedConfig.activeMode == ActiveModelMode.LOCAL) resolvedConfig.local.modelId else ""
+        val activeLocalModelId = if (resolvedConfig.activeMode == ActiveModelMode.LOCAL || resolvedConfig.activeMode == ActiveModelMode.LLAMA)
+            resolvedConfig.local.modelId else ""
         val defaultLocalModelId = resolvedConfig.local.modelId
         val configuredBuiltInLocal = LocalModelManager.configuredBuiltInModel(resolvedConfig.local)
 
-        // Build model list
+        // Build LiteRT model list
         models.forEach { model ->
             val modelEntry = catalog[model.id]
             val availability = LocalModelManager.availabilityForModel(this, model, resolvedConfig.local)
@@ -341,11 +368,270 @@ class LlmConfigActivity : BaseActivity() {
             modelList.addView(card)
         }
 
+        // ── GGUF Models Section ────────────────────────────────────────────
+        buildGgufModelSection(tc, innerLayout, resolvedConfig)
+
         // Storage info
         updateStorageInfo()
 
         // Cloud LLM — Provider tabs + model cards
         setupCloudLlm(tc)
+    }
+
+    // ── Inference Mode Selector ─────────────────────────────────────────────────
+    private fun buildModeSelector(tc: ThemeManager.ChatColors, parent: LinearLayout) {
+        val modes = listOf(
+            Triple(ActiveModelMode.LOCAL, "📱 LiteRT", "On-device (GPU/NNAPI)"),
+            Triple(ActiveModelMode.LLAMA, "🐑 GGUF", "On-device (llama.cpp)"),
+            Triple(ActiveModelMode.CLOUD, "☁️ Cloud", "Remote API"),
+        )
+
+        val activeMode = ModelConfigRepository.snapshot().activeMode
+
+        val card = CardView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(12) }
+            radius = dp(12).toFloat()
+            cardElevation = dp(1).toFloat()
+            setCardBackgroundColor(tc.toolbarBg)
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+
+        container.addView(TextView(this).apply {
+            text = "Inference Mode"
+            textSize = 12f
+            setTextColor(Color.parseColor("#8b949e"))
+        })
+
+        val tabRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(8) }
+        }
+
+        modes.forEach { (mode, label, desc) ->
+            val isActive = mode == activeMode
+            val tab = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    0, dp(56), 1f
+                ).apply { setMargins(dp(2), 0, dp(2), 0) }
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(10).toFloat()
+                    setColor(if (isActive) Color.parseColor("#2A1F1A") else Color.parseColor("#1A1A2E"))
+                    if (isActive) {
+                        setStroke(dp(1).toInt(), getColor(R.color.colorBrandPrimary))
+                    }
+                }
+                isClickable = true
+                setOnClickListener {
+                    if (mode == activeMode) return@setOnClickListener
+                    when (mode) {
+                        ActiveModelMode.LOCAL -> {
+                            KVUtils.setLlmProvider("LOCAL")
+                            KVUtils.setLocalBackendPreference("")
+                        }
+                        ActiveModelMode.LLAMA -> {
+                            KVUtils.setLlmProvider("LLAMA")
+                            KVUtils.setLocalBackendPreference("GGUF")
+                        }
+                        ActiveModelMode.CLOUD -> {
+                            KVUtils.setLlmProvider("OPENAI")
+                            KVUtils.setLocalBackendPreference("")
+                        }
+                    }
+                    ClawApplication.appViewModelInstance.updateAgentConfig()
+                    ClawApplication.appViewModelInstance.initAgent()
+                    this@LlmConfigActivity.recreate()
+                }
+
+                addView(TextView(this@LlmConfigActivity).apply {
+                    text = label
+                    textSize = 13f
+                    setTextColor(if (isActive) this@LlmConfigActivity.getColor(R.color.colorBrandPrimary) else Color.parseColor("#8b949e"))
+                    if (isActive) setTypeface(typeface, android.graphics.Typeface.BOLD)
+                })
+                addView(TextView(this@LlmConfigActivity).apply {
+                    text = desc
+                    textSize = 9f
+                    setTextColor(Color.parseColor("#6b7280"))
+                })
+            }
+            tabRow.addView(tab)
+        }
+
+        container.addView(tabRow)
+        card.addView(container)
+        parent.addView(card, 0)
+    }
+
+    // ── GGUF Model Section ──────────────────────────────────────────────────────
+    private fun buildGgufModelSection(tc: ThemeManager.ChatColors, parent: LinearLayout, resolvedConfig: ResolvedModelConfig) {
+        val ggufModels = GgufModelManager.AVAILABLE_GGUF_MODELS
+        isDownloading = false // reset
+
+        // Section header
+        parent.addView(TextView(this).apply {
+            text = "GGUF Models"
+            textSize = 13f
+            setTextColor(Color.parseColor("#8b949e"))
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(dp(4), dp(20), dp(4), dp(8))
+        })
+
+        val activeLlamaModelId = if (resolvedConfig.activeMode == ActiveModelMode.LLAMA) resolvedConfig.local.modelId else ""
+
+        ggufModels.forEach { model ->
+            val downloaded = GgufModelManager.isModelDownloaded(this, model)
+            val isActive = model.id == activeLlamaModelId
+            val supportedOnDevice = GgufModelManager.isSupportedOnDevice(this, model)
+
+            val card = CardView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(6) }
+                radius = dp(12).toFloat()
+                cardElevation = dp(1).toFloat()
+                setCardBackgroundColor(tc.toolbarBg)
+            }
+
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+            }
+
+            val info = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            info.addView(TextView(this).apply {
+                text = model.displayName
+                textSize = 14f
+                setTextColor(tc.aiText)
+                if (isActive) setTypeface(typeface, android.graphics.Typeface.BOLD)
+            })
+
+            info.addView(TextView(this).apply {
+                val sizeMb = model.sizeBytes / 1_000_000
+                val baseText = "${sizeMb} MB · ${model.minRamGb}GB+ RAM"
+                text = if (supportedOnDevice) baseText else "$baseText · Insufficient RAM"
+                textSize = 12f
+                setTextColor(if (supportedOnDevice) Color.parseColor("#8b949e") else getColor(R.color.colorWarningPrimary))
+            })
+            row.addView(info)
+
+            if (downloaded) {
+                if (isActive) {
+                    row.addView(TextView(this).apply {
+                        text = "✓ Active"
+                        textSize = 12f
+                        setTextColor(getColor(R.color.colorSuccessPrimary))
+                        setPadding(dp(8), dp(4), dp(8), dp(4))
+                    })
+                } else {
+                    val useBtn = TextView(this).apply {
+                        text = "Use"
+                        textSize = 13f
+                        setTextColor(getColor(R.color.colorBrandPrimary))
+                        setPadding(dp(12), dp(6), dp(12), dp(6))
+                        setOnClickListener {
+                            val path = GgufModelManager.getModelPath(this@LlmConfigActivity, model)
+                            if (path != null) {
+                                val shouldActivateLocal = ModelConfigRepository.isLocalActive() || !KVUtils.hasDefaultCloudModel()
+                                ModelConfigRepository.saveLocalDefault(path, model.id, shouldActivateLocal)
+                                ClawApplication.appViewModelInstance.updateAgentConfig()
+                                ClawApplication.appViewModelInstance.initAgent()
+                                Toast.makeText(this@LlmConfigActivity, "Switched to ${model.displayName}", Toast.LENGTH_SHORT).show()
+                                recreate()
+                            } else {
+                                Toast.makeText(this@LlmConfigActivity, "Model file not found", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    row.addView(useBtn)
+
+                    val delBtn = TextView(this).apply {
+                        text = "🗑"
+                        textSize = 16f
+                        setPadding(dp(8), dp(4), dp(4), dp(4))
+                        alpha = 0.4f
+                        setOnClickListener {
+                            GgufModelManager.deleteModel(this@LlmConfigActivity, model)
+                            Toast.makeText(this@LlmConfigActivity, "Deleted ${model.displayName}", Toast.LENGTH_SHORT).show()
+                            recreate()
+                        }
+                    }
+                    row.addView(delBtn)
+                }
+            } else {
+                if (supportedOnDevice) {
+                    val dlBtn = TextView(this).apply {
+                        text = "↓ Download"
+                        textSize = 13f
+                        setTextColor(getColor(R.color.colorInfoPrimary))
+                        setPadding(dp(12), dp(6), dp(12), dp(6))
+                        setOnClickListener {
+                            if (isDownloading) {
+                                Toast.makeText(this@LlmConfigActivity, "Already downloading", Toast.LENGTH_SHORT).show()
+                                return@setOnClickListener
+                            }
+                            isDownloading = true
+                            text = "Downloading..."
+                            isEnabled = false
+
+                            executor.submit {
+                                GgufModelManager.downloadModel(this@LlmConfigActivity, model, object : GgufModelManager.DownloadCallback {
+                                    override fun onProgress(bytesDownloaded: Long, totalBytes: Long, bytesPerSecond: Long) {
+                                        val pct = if (totalBytes > 0) (bytesDownloaded * 100 / totalBytes).toInt() else 0
+                                        runOnUiThread { text = "$pct%" }
+                                    }
+                                    override fun onComplete(modelPath: String) {
+                                        runOnUiThread {
+                                            val shouldActivate = ModelConfigRepository.isLocalActive() || !KVUtils.hasDefaultCloudModel()
+                                            ModelConfigRepository.saveLocalDefault(modelPath, model.id, shouldActivate)
+                                            isDownloading = false
+                                            Toast.makeText(this@LlmConfigActivity, "Downloaded! Switching to ${model.displayName}", Toast.LENGTH_SHORT).show()
+                                            recreate()
+                                        }
+                                    }
+                                    override fun onError(error: String) {
+                                        runOnUiThread {
+                                            isDownloading = false
+                                            text = "↓ Download"
+                                            isEnabled = true
+                                            Toast.makeText(this@LlmConfigActivity, error, Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                })
+                            }
+                        }
+                    }
+                    row.addView(dlBtn)
+                } else {
+                    row.addView(TextView(this).apply {
+                        text = "Needs ${model.minRamGb}GB+"
+                        textSize = 12f
+                        setTextColor(getColor(R.color.colorWarningPrimary))
+                        setPadding(dp(12), dp(6), dp(12), dp(6))
+                    })
+                }
+            }
+
+            card.addView(row)
+            parent.addView(card)
+        }
     }
 
     private fun updateStorageInfo() {

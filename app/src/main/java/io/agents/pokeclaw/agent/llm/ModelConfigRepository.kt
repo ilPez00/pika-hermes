@@ -9,7 +9,7 @@ import io.agents.pokeclaw.agent.LlmProvider
 import io.agents.pokeclaw.utils.KVUtils
 import java.io.File
 
-enum class ActiveModelMode { LOCAL, CLOUD }
+enum class ActiveModelMode { LOCAL, LLAMA, CLOUD }
 
 data class LocalModelConfig(
     val modelPath: String,
@@ -45,20 +45,18 @@ data class ResolvedModelConfig(
     val activeCloud: CloudModelConfig,
     val defaultCloud: CloudModelConfig
 ) {
-    fun isLocalActive(): Boolean = activeMode == ActiveModelMode.LOCAL
+    fun isLocalActive(): Boolean = activeMode == ActiveModelMode.LOCAL || activeMode == ActiveModelMode.LLAMA
+    fun isLlamaActive(): Boolean = activeMode == ActiveModelMode.LLAMA
 
     fun toAgentConfig(
         temperature: Double,
         maxIterations: Int,
         streaming: Boolean = false
     ): AgentConfig {
-        // Inject persistent global instructions (#45) into systemPrompt.
-        // This is the runtime construction path used by AppViewModel/AgentService,
-        // bypassing AgentConfig.Builder.build(), so we must apply the helper here too.
         val finalSystemPrompt = io.agents.pokeclaw.agent.PromptUtils
             .applyGlobalPrompt(AgentConfig.DEFAULT_SYSTEM_PROMPT)
-        return if (activeMode == ActiveModelMode.LOCAL) {
-            AgentConfig(
+        return when (activeMode) {
+            ActiveModelMode.LOCAL -> AgentConfig(
                 apiKey = "",
                 baseUrl = local.modelPath,
                 modelName = local.modelId,
@@ -68,8 +66,17 @@ data class ResolvedModelConfig(
                 provider = LlmProvider.LOCAL,
                 streaming = streaming
             )
-        } else {
-            AgentConfig(
+            ActiveModelMode.LLAMA -> AgentConfig(
+                apiKey = "",
+                baseUrl = local.modelPath,
+                modelName = local.modelId,
+                systemPrompt = finalSystemPrompt,
+                maxIterations = maxIterations,
+                temperature = temperature,
+                provider = LlmProvider.LLAMA,
+                streaming = streaming
+            )
+            ActiveModelMode.CLOUD -> AgentConfig(
                 apiKey = activeCloud.apiKey,
                 baseUrl = activeCloud.resolvedBaseUrl,
                 modelName = activeCloud.modelName,
@@ -91,7 +98,11 @@ object ModelConfigRepository {
 
     fun snapshot(): ResolvedModelConfig {
         val activeProviderRaw = KVUtils.getLlmProvider().ifBlank { "OPENAI" }.uppercase()
-        val activeMode = if (activeProviderRaw == "LOCAL") ActiveModelMode.LOCAL else ActiveModelMode.CLOUD
+        val activeMode = when (activeProviderRaw) {
+            "LLAMA" -> ActiveModelMode.LLAMA
+            "LOCAL" -> ActiveModelMode.LOCAL
+            else -> ActiveModelMode.CLOUD
+        }
 
         val localModelPath = KVUtils.getLocalModelPath()
         val matchedLocalModel = LocalModelManager.AVAILABLE_MODELS.find { localModelPath.endsWith(it.fileName) }
@@ -156,19 +167,26 @@ object ModelConfigRepository {
     }
 
     fun isLocalActive(): Boolean = snapshot().isLocalActive()
+    fun isLlamaActive(): Boolean = snapshot().isLlamaActive()
 
     fun saveLocalDefault(modelPath: String, modelId: String, activateNow: Boolean) {
         KVUtils.setLocalModelPath(modelPath)
         if (activateNow) {
-            activateLocal(modelPath, modelId)
+            activateOnDevice(modelPath, modelId)
         }
     }
 
-    fun activateLocal(modelPath: String, modelId: String) {
+    fun activateOnDevice(modelPath: String, modelId: String) {
         KVUtils.setLocalModelPath(modelPath)
-        KVUtils.setLlmProvider("LOCAL")
+        val provider = if (modelPath.endsWith(".gguf", ignoreCase = true)) "LLAMA" else "LOCAL"
+        KVUtils.setLlmProvider(provider)
         KVUtils.setLlmModelName(modelId)
+        KVUtils.setLocalBackendPreference(if (provider == "LLAMA") "GGUF" else "")
     }
+
+    /** @deprecated Use [activateOnDevice] */
+    @Deprecated("Use activateOnDevice", ReplaceWith("activateOnDevice"))
+    fun activateLocal(modelPath: String, modelId: String) = activateOnDevice(modelPath, modelId)
 
     fun saveCloudDefault(
         providerName: String,

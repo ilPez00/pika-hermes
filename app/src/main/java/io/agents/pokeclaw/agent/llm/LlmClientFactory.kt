@@ -7,6 +7,7 @@ import io.agents.pokeclaw.agent.AgentConfig
 import io.agents.pokeclaw.agent.DefaultAgentService
 import io.agents.pokeclaw.agent.LlmProvider
 import io.agents.pokeclaw.agent.langchain.http.OkHttpClientBuilderAdapter
+import io.agents.pokeclaw.agent.llm.llama.LlamaBackend
 
 object LlmClientFactory {
 
@@ -20,6 +21,11 @@ object LlmClientFactory {
             LlmProvider.OPENAI -> OpenAiLlmClient(config, httpClientBuilder)
             LlmProvider.ANTHROPIC -> AnthropicLlmClient(config, httpClientBuilder)
             LlmProvider.LOCAL -> LocalLlmClient(config)
+            LlmProvider.LLAMA -> LlamaBackend(
+                modelPath = config.baseUrl,
+                nCtx = 4096,
+                maxTokens = 2048,
+            )
         }
     }
 }
