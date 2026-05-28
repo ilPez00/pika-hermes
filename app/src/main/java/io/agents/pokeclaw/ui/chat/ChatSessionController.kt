@@ -132,6 +132,15 @@ class ChatSessionController(
             uiState.modelStatus.value = if (isModelReady) "● $ggufName · GGUF" else "● GGUF model not found"
             setButtonsEnabled(isModelReady)
             XLog.i(TAG, "loadModelIfReady: LLAMA mode, client=${cloudClient?.javaClass?.simpleName}")
+            // Pre-warm: load model in background so first message is instant
+            if (ggufPath.isNotEmpty() && java.io.File(ggufPath).exists()) {
+                executor.submit {
+                    kotlinx.coroutines.runBlocking {
+                        val ok = io.agents.pokeclaw.agent.llm.llama.LlamaEngine.loadModel(ggufPath, 4096)
+                        XLog.i(TAG, "pre-warm loadModel($ggufName) -> $ok")
+                    }
+                }
+            }
             return
         }
 
@@ -341,15 +350,30 @@ class ChatSessionController(
                 if (cloudClient != null) {
                     ensureCloudHistoryInitialized()
                     cloudHistory.add(UserMessage.from(text))
-                    val llmResponse = cloudClient!!.chat(cloudHistory, emptyList())
-                    val responseText = llmResponse.text ?: "(no response)"
+                    val accumulated = StringBuilder()
+                    var finalResponse: io.agents.pokeclaw.agent.llm.LlmResponse? = null
+                    cloudClient!!.chatStreaming(cloudHistory, emptyList(), object : io.agents.pokeclaw.agent.llm.StreamingListener {
+                        override fun onPartialText(token: String) {
+                            accumulated.append(token)
+                            val snapshot = accumulated.toString()
+                            postToMain { updateStreamingBubble(snapshot) }
+                        }
+                        override fun onComplete(response: io.agents.pokeclaw.agent.llm.LlmResponse) { finalResponse = response }
+                        override fun onError(error: Throwable) { XLog.e(TAG, "streaming error", error) }
+                    })
+                    val llmResponse = finalResponse
+                        ?: io.agents.pokeclaw.agent.llm.LlmResponse(
+                            text = accumulated.toString().ifBlank { null },
+                            toolExecutionRequests = emptyList()
+                        )
+                    val responseText = llmResponse.text ?: accumulated.toString().ifBlank { "(no response)" }
                     cloudHistory.add(AiMessage.from(responseText))
                     val usage = llmResponse.tokenUsage
                     val inputTokens = usage?.inputTokenCount() ?: (text.length / 4 + 1)
                     val outputTokens = usage?.outputTokenCount() ?: (responseText.length / 4 + 1)
                     val fallbackModelName = cloudModelName ?: ModelConfigRepository.snapshot().activeCloud.modelName
                     val modelTag = llmResponse.modelName ?: fallbackModelName
-                    XLog.d(TAG, "sendChat: cloud response modelName='${llmResponse.modelName}', fallback='$fallbackModelName'")
+                    XLog.d(TAG, "sendChat: response modelName='${llmResponse.modelName}', fallback='$fallbackModelName'")
                     postToMain {
                         replaceTypingIndicator(responseText, modelTag)
                         uiState.isAwaitingReply.value = false
@@ -625,6 +649,11 @@ class ChatSessionController(
         if (cloudHistory.isEmpty()) {
             rebuildCloudHistoryFromVisibleMessages()
         }
+    }
+
+    private fun updateStreamingBubble(content: String) {
+        val idx = uiState.messages.indexOfLast { it.role == ChatMessage.Role.ASSISTANT }
+        if (idx >= 0) uiState.messages[idx] = uiState.messages[idx].copy(content = content)
     }
 
     private fun replaceTypingIndicator(text: String, actualModelName: String? = null) {

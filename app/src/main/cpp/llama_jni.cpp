@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <thread>
 #include <android/log.h>
 
 #define LTAG "LlamaJNI"
@@ -50,8 +51,10 @@ Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeLoadModel(
 
     llama_context_params cparams = llama_context_default_params();
     cparams.n_ctx           = static_cast<uint32_t>(n_ctx > 0 ? n_ctx : 2048);
+    // gen: 4 big cores; batch/prefill: all available cores for faster prompt ingestion
+    unsigned int hw_cores = std::thread::hardware_concurrency();
     cparams.n_threads       = 4;
-    cparams.n_threads_batch = 4;
+    cparams.n_threads_batch = hw_cores > 0 ? hw_cores : 4;
     LOGI("creating context n_ctx=%u", cparams.n_ctx);
     g_ctx = llama_new_context_with_model(g_model, cparams);
     if (!g_ctx) {
@@ -116,6 +119,58 @@ Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeComplete(
     }
 
     return env->NewStringUTF(result.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeCompleteStreaming(
+    JNIEnv *env, jobject /*thiz*/, jstring prompt_jstr, jint max_tokens, jobject callback) {
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_model || !g_ctx || !g_sampler) return;
+
+    const char *prompt_str = env->GetStringUTFChars(prompt_jstr, nullptr);
+    if (!prompt_str) return;
+
+    const llama_vocab *vocab = llama_model_get_vocab(g_model);
+    int n_ctx    = (int)llama_n_ctx(g_ctx);
+    int n_prompt = -llama_tokenize(vocab, prompt_str, -1, nullptr, 0, true, false);
+    if (n_prompt <= 0 || n_prompt > n_ctx / 2) {
+        env->ReleaseStringUTFChars(prompt_jstr, prompt_str);
+        return;
+    }
+
+    std::vector<llama_token> tokens(n_prompt);
+    n_prompt = llama_tokenize(vocab, prompt_str, -1, tokens.data(), n_prompt, true, false);
+    env->ReleaseStringUTFChars(prompt_jstr, prompt_str);
+    if (n_prompt <= 0) return;
+
+    jclass cbClass = env->GetObjectClass(callback);
+    jmethodID onToken = env->GetMethodID(cbClass, "onToken", "(Ljava/lang/String;)V");
+    if (!onToken) return;
+
+    llama_kv_cache_clear(g_ctx);
+    llama_batch batch = llama_batch_get_one(tokens.data(), n_prompt);
+    if (llama_decode(g_ctx, batch) != 0) return;
+
+    char piece_buf[32];
+    for (int i = 0; i < max_tokens; i++) {
+        llama_token id = llama_sampler_sample(g_sampler, g_ctx, -1);
+        llama_sampler_accept(g_sampler, id);
+
+        if (llama_vocab_is_eog(vocab, id)) break;
+
+        int n = llama_token_to_piece(vocab, id, piece_buf, sizeof(piece_buf), 0, true);
+        if (n > 0) {
+            piece_buf[n] = '\0';
+            jstring piece = env->NewStringUTF(piece_buf);
+            env->CallVoidMethod(callback, onToken, piece);
+            env->DeleteLocalRef(piece);
+            if (env->ExceptionCheck()) { env->ExceptionClear(); break; }
+        }
+
+        batch = llama_batch_get_one(&id, 1);
+        if (llama_decode(g_ctx, batch) != 0) break;
+    }
 }
 
 extern "C" JNIEXPORT void JNICALL

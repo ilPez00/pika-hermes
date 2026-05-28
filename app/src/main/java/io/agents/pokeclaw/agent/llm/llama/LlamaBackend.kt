@@ -48,8 +48,21 @@ class LlamaBackend(
         toolSpecs: List<ToolSpecification>,
         listener: StreamingListener,
     ): LlmResponse {
-        val response = chat(messages, toolSpecs)
-        if (!response.text.isNullOrEmpty()) listener.onPartialText(response.text)
+        val prompt = buildPrompt(messages, toolSpecs)
+        val accumulated = StringBuilder()
+        runBlocking {
+            val ok = LlamaEngine.loadModel(modelPath, nCtx)
+            XLog.i(TAG, "chatStreaming: loadModel -> $ok")
+            if (!ok) {
+                listener.onError(RuntimeException("Model load failed"))
+                return@runBlocking
+            }
+            LlamaEngine.completeStreaming(prompt, maxTokens) { piece ->
+                accumulated.append(piece)
+                listener.onPartialText(piece)
+            }
+        }
+        val response = parseResponse(accumulated.toString())
         listener.onComplete(response)
         return response
     }

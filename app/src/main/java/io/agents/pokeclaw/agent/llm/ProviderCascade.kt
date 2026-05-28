@@ -8,6 +8,11 @@ import io.agents.pokeclaw.agent.langchain.http.OkHttpClientBuilderAdapter
 import io.agents.pokeclaw.utils.KVUtils
 import io.agents.pokeclaw.utils.XLog
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * CascadingLlmClient — tries providers in priority order, falls back on failure.
@@ -84,13 +89,42 @@ class CascadingLlmClient(
     override fun chat(messages: List<ChatMessage>, toolSpecs: List<ToolSpecification>): LlmResponse {
         val now = System.currentTimeMillis()
         val tried = mutableListOf<String>()
-        for (slot in slots) {
-            val deadAt = deadUntil[slot.name] ?: 0L
-            if (deadAt > now) { XLog.d(TAG, "skip dead: ${slot.name} (dead for ${(deadAt - now)/1000}s)"); continue }
+        val liveSlots = slots.filter { (deadUntil[it.name] ?: 0L) <= now }
+
+        // Phase 1: fire top PARALLEL_N live slots concurrently, take first success
+        val parallelSlots = liveSlots.take(PARALLEL_N)
+        if (parallelSlots.isNotEmpty()) {
+            parallelSlots.forEach { tried += it.name }
+            val result = runBlocking {
+                val channel = Channel<Pair<ProviderSlot, Result<LlmResponse>>>(parallelSlots.size)
+                val jobs = parallelSlots.map { slot ->
+                    launch(Dispatchers.IO) {
+                        channel.send(slot to runCatching { slotToClient(slot).chat(messages, toolSpecs) })
+                    }
+                }
+                var winner: LlmResponse? = null
+                repeat(parallelSlots.size) {
+                    val (slot, r) = channel.receive()
+                    if (winner == null && r.isSuccess) {
+                        winner = r.getOrNull()
+                        XLog.i(TAG, "cascade hit (parallel): ${slot.name}")
+                    } else if (r.isFailure) {
+                        val backoffMs = backoffFor(slot.name, r.exceptionOrNull() as Exception)
+                        if (backoffMs > 0) deadUntil[slot.name] = now + backoffMs
+                        XLog.w(TAG, "cascade miss: ${slot.name} → ${r.exceptionOrNull()?.message?.take(80)}")
+                    }
+                }
+                jobs.forEach { it.cancel() }
+                winner
+            }
+            if (result != null) return result
+        }
+
+        // Phase 2: sequential fallback for remaining slots
+        for (slot in liveSlots.drop(PARALLEL_N)) {
             tried += slot.name
             try {
-                val client = slotToClient(slot)
-                val resp = client.chat(messages, toolSpecs)
+                val resp = slotToClient(slot).chat(messages, toolSpecs)
                 XLog.i(TAG, "cascade hit: ${slot.name}")
                 return resp
             } catch (e: Exception) {
@@ -142,6 +176,7 @@ class CascadingLlmClient(
 
     companion object {
         private const val TAG = "ProviderCascade"
+        private const val PARALLEL_N = 3
 
         // KVUtils keys for cascade provider credentials
         const val KEY_DEEPSEEK   = "CASCADE_KEY_DEEPSEEK"
