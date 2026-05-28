@@ -148,6 +148,7 @@ fun ChatScreen(
     activeTasks: List<String> = emptyList(),
     onStopTask: (String) -> Unit = {},
     onStopAllTasks: () -> Unit = {},
+    onCancelChat: () -> Unit = {},
     inputEnabled: Boolean = true,
     onModelSwitch: (modelId: String, displayName: String) -> Unit = { _, _ -> },
     colors: PokeclawColors = AbyssDark,
@@ -306,6 +307,7 @@ fun ChatScreen(
                             onSendChat = onSendChat,
                             onSendTask = onSendTask,
                             onStopAll = onStopAllTasks,
+                            onCancelChat = onCancelChat,
                             onAttach = onAttach,
                             colors = colors,
                             prefillText = prefillText,
@@ -851,6 +853,7 @@ private fun ChatInputBar(
     onSendChat: (String) -> Unit,
     onSendTask: (String) -> Unit,
     onStopAll: () -> Unit = {},
+    onCancelChat: () -> Unit = {},
     onAttach: () -> Unit,
     colors: PokeclawColors,
     prefillText: String = "",
@@ -1053,16 +1056,15 @@ private fun ChatInputBar(
 
             FloatingActionButton(
                 onClick = {
-                    if (isTaskRunning) {
-                        onStopAll()
-                    } else if (!isAwaitingReply && inputEnabled && text.isNotBlank()) {
-                        if (!isLocalModel || isTaskMode) {
-                            onSendTask(text.trim())
-                            text = ""
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                        } else {
-                            onSendChat(text.trim())
+                    when {
+                        isTaskRunning -> onStopAll()
+                        isAwaitingReply -> onCancelChat()
+                        inputEnabled && text.isNotBlank() -> {
+                            if (!isLocalModel || isTaskMode) {
+                                onSendTask(text.trim())
+                            } else {
+                                onSendChat(text.trim())
+                            }
                             text = ""
                             focusManager.clearFocus()
                             keyboardController?.hide()
@@ -1071,10 +1073,10 @@ private fun ChatInputBar(
                 },
                 modifier = Modifier
                     .size(34.dp)
-                    .alpha(if ((text.isBlank() || !inputEnabled || isAwaitingReply) && !isTaskRunning) 0.35f else 1f),
+                    .alpha(if ((text.isBlank() || !inputEnabled) && !isTaskRunning && !isAwaitingReply) 0.35f else 1f),
                 containerColor = when {
                     isTaskRunning -> Color(0xFFF44336)
-                    isAwaitingReply -> colors.background
+                    isAwaitingReply -> Color(0xFFF44336)
                     text.isBlank() -> colors.background
                     isTaskMode && isLocalModel -> colors.accent
                     else -> colors.userBubble
@@ -1085,12 +1087,12 @@ private fun ChatInputBar(
                 Icon(
                     when {
                         isTaskRunning -> Icons.Default.Close
-                        isAwaitingReply -> Icons.Default.MoreHoriz
+                        isAwaitingReply -> Icons.Default.Close
                         else -> Icons.Default.ArrowUpward
                     },
                     contentDescription = when {
                         isTaskRunning -> "Stop"
-                        isAwaitingReply -> "Waiting for reply"
+                        isAwaitingReply -> "Cancel"
                         else -> "Send"
                     },
                     tint = Color.White,

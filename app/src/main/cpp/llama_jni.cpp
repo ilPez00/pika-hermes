@@ -4,6 +4,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <atomic>
 #include <android/log.h>
 
 #define LTAG "LlamaJNI"
@@ -11,6 +12,7 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LTAG, __VA_ARGS__)
 
 static std::mutex g_mutex;
+static std::atomic<bool> g_abort{false};
 static llama_model   *g_model   = nullptr;
 static llama_context *g_ctx     = nullptr;
 static llama_sampler *g_sampler = nullptr;
@@ -152,8 +154,11 @@ Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeCompleteStreaming(
     llama_batch batch = llama_batch_get_one(tokens.data(), n_prompt);
     if (llama_decode(g_ctx, batch) != 0) return;
 
+    g_abort.store(false);
     char piece_buf[32];
     for (int i = 0; i < max_tokens; i++) {
+        if (g_abort.load()) { LOGI("streaming aborted by request"); break; }
+
         llama_token id = llama_sampler_sample(g_sampler, g_ctx, -1);
         llama_sampler_accept(g_sampler, id);
 
@@ -171,6 +176,19 @@ Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeCompleteStreaming(
         batch = llama_batch_get_one(&id, 1);
         if (llama_decode(g_ctx, batch) != 0) break;
     }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeAbort(
+    JNIEnv * /*env*/, jobject /*thiz*/) {
+    g_abort.store(true);
+    LOGI("abort signal set");
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_agents_pokeclaw_agent_llm_llama_LlamaEngine_nativeResetAbort(
+    JNIEnv * /*env*/, jobject /*thiz*/) {
+    g_abort.store(false);
 }
 
 extern "C" JNIEXPORT void JNICALL

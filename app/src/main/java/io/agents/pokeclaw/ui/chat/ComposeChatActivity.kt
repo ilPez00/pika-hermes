@@ -196,6 +196,7 @@ class ComposeChatActivity : ComponentActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 },
+                onCancelChat = { chatSessionController.cancelChat() },
                 onModelSwitch = { modelId, displayName -> switchModel(modelId, displayName) },
                 colors = composeColors,
             )

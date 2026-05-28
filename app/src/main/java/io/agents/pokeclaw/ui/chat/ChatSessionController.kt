@@ -3,6 +3,8 @@
 
 package io.agents.pokeclaw.ui.chat
 
+import android.content.Context
+import android.os.PowerManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.MutableState
@@ -48,6 +50,7 @@ class ChatSessionController(
     companion object {
         private const val TAG = "ChatSessionController"
         private const val BASE_SYSTEM_PROMPT = "You are a helpful AI assistant on an Android phone."
+        private const val MAX_CLOUD_HISTORY_MESSAGES = 40  // 20 turns × 2 (user+assistant)
     }
 
     private var engine: Engine? = null
@@ -345,10 +348,15 @@ class ChatSessionController(
         uiState.isAwaitingReply.value = true
         uiState.messages.add(ChatMessage(ChatMessage.Role.ASSISTANT, "..."))
 
+        val wakeLock = (activity.getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "pika-hermes:inference")
+        wakeLock.acquire(10 * 60 * 1000L)
+
         executor.submit {
             try {
                 if (cloudClient != null) {
                     ensureCloudHistoryInitialized()
+                    trimCloudHistory()
                     cloudHistory.add(UserMessage.from(text))
                     val accumulated = StringBuilder()
                     var finalResponse: io.agents.pokeclaw.agent.llm.LlmResponse? = null
@@ -425,8 +433,22 @@ class ChatSessionController(
                     replaceTypingIndicator("Error: ${e.message}")
                     uiState.isAwaitingReply.value = false
                 }
+            } finally {
+                if (wakeLock.isHeld) wakeLock.release()
             }
         }
+    }
+
+    fun cancelChat() {
+        io.agents.pokeclaw.agent.llm.llama.LlamaEngine.abort()
+        postToMain {
+            uiState.isAwaitingReply.value = false
+            val idx = uiState.messages.indexOfLast { it.role == ChatMessage.Role.ASSISTANT }
+            if (idx >= 0 && uiState.messages[idx].content == "...") {
+                uiState.messages[idx] = uiState.messages[idx].copy(content = "[Cancelled]")
+            }
+        }
+        XLog.i(TAG, "cancelChat: abort signal sent")
     }
 
     fun switchModel(modelId: String, displayName: String) {
@@ -649,6 +671,16 @@ class ChatSessionController(
         if (cloudHistory.isEmpty()) {
             rebuildCloudHistoryFromVisibleMessages()
         }
+    }
+
+    private fun trimCloudHistory() {
+        if (cloudHistory.size <= MAX_CLOUD_HISTORY_MESSAGES + 1) return
+        val system = cloudHistory.firstOrNull { it is SystemMessage }
+        val trimmed = cloudHistory.takeLast(MAX_CLOUD_HISTORY_MESSAGES)
+        cloudHistory.clear()
+        if (system != null && trimmed.firstOrNull() !is SystemMessage) cloudHistory.add(system)
+        cloudHistory.addAll(trimmed)
+        XLog.d(TAG, "trimCloudHistory: kept ${cloudHistory.size} messages")
     }
 
     private fun updateStreamingBubble(content: String) {

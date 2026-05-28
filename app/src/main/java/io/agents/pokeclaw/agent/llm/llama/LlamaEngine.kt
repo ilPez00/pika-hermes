@@ -18,6 +18,8 @@ object LlamaEngine {
     private external fun nativeLoadModel(modelPath: String, nCtx: Int): Boolean
     private external fun nativeComplete(prompt: String, maxTokens: Int): String
     private external fun nativeCompleteStreaming(prompt: String, maxTokens: Int, callback: TokenCallback)
+    private external fun nativeAbort()
+    private external fun nativeResetAbort()
     private external fun nativeRelease()
 
     suspend fun loadModel(modelPath: String, nCtx: Int = 4096): Boolean = withContext(Dispatchers.IO) {
@@ -42,6 +44,9 @@ object LlamaEngine {
             override fun onToken(token: String) = onToken(token)
         })
     }
+
+    fun abort() { nativeAbort() }
+    fun resetAbort() { nativeResetAbort() }
 
     fun release() {
         if (!loaded) return

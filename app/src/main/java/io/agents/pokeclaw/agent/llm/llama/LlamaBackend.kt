@@ -51,6 +51,7 @@ class LlamaBackend(
         val prompt = buildPrompt(messages, toolSpecs)
         val accumulated = StringBuilder()
         runBlocking {
+            LlamaEngine.resetAbort()
             val ok = LlamaEngine.loadModel(modelPath, nCtx)
             XLog.i(TAG, "chatStreaming: loadModel -> $ok")
             if (!ok) {
