@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Yellow mouse (pika-hermes mascot) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background -->
+    <path android:pathData="M0,0 H108 V108 H0 Z" android:fillColor="#FFD700"/>
+
+    <!-- Left ear outer -->
+    <path android:pathData="M24,44 L18,14 L40,22 Z" android:fillColor="#F5C200"/>
+    <!-- Left ear inner (pink) -->
+    <path android:pathData="M25,42 L21,20 L37,26 Z" android:fillColor="#FF9B9B"/>
+
+    <!-- Right ear outer -->
+    <path android:pathData="M84,44 L90,14 L68,22 Z" android:fillColor="#F5C200"/>
+    <!-- Right ear inner (pink) -->
+    <path android:pathData="M83,42 L87,20 L71,26 Z" android:fillColor="#FF9B9B"/>
+
+    <!-- Head -->
+    <path android:pathData="M54,90 m-34,0 a34,34 0 1,0 68,0 a34,34 0 1,0 -68,0"
+        android:fillColor="#FFD700"/>
+
+    <!-- Left eye white -->
+    <path android:pathData="M38,72 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#FFFFFF"/>
+    <!-- Left eye pupil -->
+    <path android:pathData="M38,72 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
+        android:fillColor="#1A1A1A"/>
+    <!-- Left eye shine -->
+    <path android:pathData="M35.5,69.5 m-1.5,0 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Right eye white -->
+    <path android:pathData="M70,72 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#FFFFFF"/>
+    <!-- Right eye pupil -->
+    <path android:pathData="M70,72 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
+        android:fillColor="#1A1A1A"/>
+    <!-- Right eye shine -->
+    <path android:pathData="M67.5,69.5 m-1.5,0 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Nose -->
+    <path android:pathData="M54,81 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0"
+        android:fillColor="#1A1A1A"/>
+
+    <!-- Mouth -->
+    <path android:pathData="M47,85 Q54,92 61,85"
+        android:strokeColor="#1A1A1A"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+
+    <!-- Left cheek blush -->
+    <path android:pathData="M31,80 m-8,0 a8,6 0 1,0 16,0 a8,6 0 1,0 -16,0"
+        android:fillColor="#FF6B6B"
+        android:fillAlpha="0.65"/>
+
+    <!-- Right cheek blush -->
+    <path android:pathData="M77,80 m-8,0 a8,6 0 1,0 16,0 a8,6 0 1,0 -16,0"
+        android:fillColor="#FF6B6B"
+        android:fillAlpha="0.65"/>
+</vector>

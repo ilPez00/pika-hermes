@@ -75,12 +75,38 @@ object LocalModelManager {
     }
 
     val AVAILABLE_MODELS = listOf(
+        // ── Smallest / fastest ────────────────────────────────────────────────
+        ModelInfo(
+            id = "qwen25-1.5b",
+            displayName = "★ Qwen2.5 1.5B — 1.5GB [FASTEST]",
+            url = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+            fileName = "Qwen2.5-1.5B-Instruct_q8_ekv4096.litertlm",
+            sizeBytes = 1_597_931_520L,
+            minRamGb = 4
+        ),
+        ModelInfo(
+            id = "deepseek-r1-1.5b",
+            displayName = "DeepSeek R1 Distill 1.5B — 1.7GB [REASONING]",
+            url = "https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
+            fileName = "DeepSeek-R1-Distill-Qwen-1.5B_q8_ekv4096.litertlm",
+            sizeBytes = 1_833_451_520L,
+            minRamGb = 4
+        ),
+        // ── Mid-tier ─────────────────────────────────────────────────────────
         ModelInfo(
             id = "gemma4-e2b",
             displayName = "Gemma 4 E2B — 2.6GB",
             url = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
             fileName = "gemma-4-E2B-it.litertlm",
             sizeBytes = 2_580_000_000L,
+            minRamGb = 8
+        ),
+        ModelInfo(
+            id = "phi4-mini",
+            displayName = "Phi-4 Mini 3.8B — 3.7GB [MICROSOFT]",
+            url = "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+            fileName = "Phi-4-mini-instruct_q8_ekv4096.litertlm",
+            sizeBytes = 3_910_090_752L,
             minRamGb = 8
         ),
         ModelInfo(
