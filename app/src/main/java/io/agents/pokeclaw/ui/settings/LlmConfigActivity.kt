@@ -476,7 +476,7 @@ class LlmConfigActivity : BaseActivity() {
 
     // ── GGUF Model Section ──────────────────────────────────────────────────────
     private fun buildGgufModelSection(tc: ThemeManager.ChatColors, parent: LinearLayout, resolvedConfig: ResolvedModelConfig) {
-        val ggufModels = GgufModelManager.AVAILABLE_GGUF_MODELS
+        val ggufModels = GgufModelManager.allModels(this)
         isDownloading = false // reset
 
         // Section header

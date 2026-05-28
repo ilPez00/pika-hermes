@@ -24,6 +24,48 @@ object GgufModelManager {
     )
 
     val AVAILABLE_GGUF_MODELS = listOf(
+        // ── Recommended: fastest, fits 4GB+ RAM ──────────────────────────────
+        GgufModelInfo(
+            id = "gemma-2-2b-abliterated",
+            displayName = "★ Gemma 2 2B Abliterated — 1.7GB [FASTEST]",
+            url = "https://huggingface.co/bartowski/gemma-2-2b-it-abliterated-GGUF/resolve/main/gemma-2-2b-it-abliterated-Q4_K_M.gguf",
+            fileName = "gemma-2-2b-it-abliterated-Q4_K_M.gguf",
+            sizeBytes = 1_708_582_784L,
+            minRamGb = 4,
+        ),
+        GgufModelInfo(
+            id = "phi-3.5-mini",
+            displayName = "Phi-3.5 Mini 3.8B — 2.2GB [LIGHTWEIGHT]",
+            url = "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
+            fileName = "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+            sizeBytes = 2_200_000_000L,
+            minRamGb = 4,
+        ),
+        GgufModelInfo(
+            id = "gemma-4-e4b-uncensored",
+            displayName = "Gemma 4 E4B Uncensored — 5.3GB",
+            url = "https://huggingface.co/llmfan46/gemma-4-E4B-it-uncensored-GGUF/resolve/main/gemma-4-E4B-it-uncensored-Q4_K_M.gguf",
+            fileName = "gemma-4-E4B-it-uncensored-Q4_K_M.gguf",
+            sizeBytes = 5_335_285_280L,
+            minRamGb = 8,
+        ),
+        // ── Larger, 8GB+ RAM ─────────────────────────────────────────────────
+        GgufModelInfo(
+            id = "gemma-4-e4b-heretic",
+            displayName = "Gemma 4 E4B Heretic — 5.3GB [HERETIC]",
+            url = "https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF/resolve/main/gemma-4-E4B-it-ultra-uncensored-heretic-Q4_K_M.gguf",
+            fileName = "gemma-4-E4B-it-ultra-uncensored-heretic-Q4_K_M.gguf",
+            sizeBytes = 5_340_000_000L,
+            minRamGb = 8,
+        ),
+        GgufModelInfo(
+            id = "dolphin-llama3-8b",
+            displayName = "Dolphin 2.9 Llama3 8B — 4.9GB [UNCENSORED]",
+            url = "https://huggingface.co/bartowski/dolphin-2.9-llama3-8b-GGUF/resolve/main/dolphin-2.9-llama3-8b-Q4_K_M.gguf",
+            fileName = "dolphin-2.9-llama3-8b-Q4_K_M.gguf",
+            sizeBytes = 4_900_000_000L,
+            minRamGb = 8,
+        ),
         GgufModelInfo(
             id = "llama-3.2-3b-uncensored",
             displayName = "Llama 3.2 3B Uncensored — 2.0GB",
@@ -33,14 +75,6 @@ object GgufModelManager {
             minRamGb = 6,
         ),
         GgufModelInfo(
-            id = "smol-mini-uncensored",
-            displayName = "SmolMini 1.7B Uncensored — 1.3GB",
-            url = "https://huggingface.co/bartowski/SmolLM2-1.7B-Instruct-Uncensored-GGUF/resolve/main/SmolLM2-1.7B-Instruct-Uncensored-Q6_K.gguf",
-            fileName = "SmolLM2-1.7B-Instruct-Uncensored-Q6_K.gguf",
-            sizeBytes = 1_300_000_000L,
-            minRamGb = 4,
-        ),
-        GgufModelInfo(
             id = "qwen-uncensored",
             displayName = "Qwen Uncensored v2 — 2.7GB",
             url = "https://huggingface.co/bartowski/Qwen-uncensored-v2-abliterated-GGUF/resolve/main/Qwen-uncensored-v2-abliterated-Q4_K_M.gguf",
@@ -48,15 +82,40 @@ object GgufModelManager {
             sizeBytes = 2_700_000_000L,
             minRamGb = 8,
         ),
-        GgufModelInfo(
-            id = "smallthinker-3b",
-            displayName = "SmallThinker 3B Preview — 2.1GB",
-            url = "https://huggingface.co/bartowski/SmallThinker-3B-Preview-abliterated-GGUF/resolve/main/SmallThinker-3B-Preview-abliterated-Q4_K_M.gguf",
-            fileName = "SmallThinker-3B-Preview-abliterated-Q4_K_M.gguf",
-            sizeBytes = 2_100_000_000L,
-            minRamGb = 6,
-        ),
     )
+
+    /**
+     * Scan known local paths for pre-existing GGUF files (e.g. pushed via ADB).
+     * Returns extra GgufModelInfo entries for any found files not already in AVAILABLE_GGUF_MODELS.
+     */
+    fun scanLocalModels(context: android.content.Context): List<GgufModelInfo> {
+        val known = AVAILABLE_GGUF_MODELS.map { it.fileName }.toSet()
+        val scanDirs = listOf(
+            File("/sdcard/pika-hermes/gguf"),
+            File("/sdcard/pika-hermes"),
+            File("/sdcard/Download"),
+            ggufDir(context),
+        )
+        val found = mutableListOf<GgufModelInfo>()
+        for (dir in scanDirs) {
+            if (!dir.isDirectory) continue
+            dir.listFiles()?.filter { it.extension == "gguf" && it.name !in known }?.forEach { f ->
+                found += GgufModelInfo(
+                    id          = "local_${f.nameWithoutExtension}",
+                    displayName = "[Local] ${f.nameWithoutExtension} — ${f.length() / 1_000_000_000L + 1}GB",
+                    url         = "",
+                    fileName    = f.name,
+                    sizeBytes   = f.length(),
+                    minRamGb    = 4,
+                )
+            }
+        }
+        return found
+    }
+
+    /** Full model list: catalog + locally scanned pre-existing files. */
+    fun allModels(context: android.content.Context): List<GgufModelInfo> =
+        AVAILABLE_GGUF_MODELS + scanLocalModels(context)
 
     private fun ggufDir(context: Context): File {
         val base = LocalModelManager.getModelDir(context)

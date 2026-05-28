@@ -109,6 +109,32 @@ class ChatSessionController(
         }
 
         cloudClient = null
+
+        // LLAMA mode uses llama.cpp JNI, not LiteRT — skip engine load, wire LlamaBackend as chat client
+        if (resolvedConfig.isLlamaActive()) {
+            val ggufPath = resolvedConfig.local.modelPath
+            if (cloudClient == null || loadedModelPath != ggufPath) {
+                loadedModelPath = ggufPath
+                cloudClient = if (ggufPath.isNotEmpty() && java.io.File(ggufPath).exists()) {
+                    io.agents.pokeclaw.agent.llm.llama.LlamaBackend(modelPath = ggufPath, nCtx = 4096, maxTokens = 1024)
+                } else {
+                    // GGUF not on device yet — fall back to cascade if keys available
+                    if (io.agents.pokeclaw.agent.llm.CascadingLlmClient.hasAnyKey())
+                        io.agents.pokeclaw.agent.llm.CascadingLlmClient(
+                            io.agents.pokeclaw.agent.langchain.http.OkHttpClientBuilderAdapter(),
+                            resolvedConfig.toAgentConfig(temperature = 0.7, maxIterations = 60),
+                        )
+                    else null
+                }
+            }
+            val ggufName = if (ggufPath.isNotEmpty()) java.io.File(ggufPath).nameWithoutExtension else "GGUF"
+            isModelReady = cloudClient != null
+            uiState.modelStatus.value = if (isModelReady) "● $ggufName · GGUF" else "● GGUF model not found"
+            setButtonsEnabled(isModelReady)
+            XLog.i(TAG, "loadModelIfReady: LLAMA mode, client=${cloudClient?.javaClass?.simpleName}")
+            return
+        }
+
         val modelPath = resolvedConfig.local.modelPath
         if (isTaskRunning()) {
             uiState.modelStatus.value = "● Local task using model"

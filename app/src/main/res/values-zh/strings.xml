@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PokeClaw</string>
+    <string name="app_name">pika-hermes</string>
 
     <!-- 通用 -->
     <string name="common_confirm">确定</string>

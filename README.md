@@ -1,568 +1,104 @@
+# pika-hermes
 
-<p align="center">
-  <img src="banna.png" width="600" />
-</p>
-<p align="center">
-  <img src="option.png" width="600" />
-</p>
+**Uncensored Android AI phone agent.** Runs any GGUF model locally via llama.cpp, or falls back to a 40-provider cloud cascade (DeepSeek → Groq → Gemini × 21 → OpenRouter → Mistral → keyless proxies → public Ollama). No topic is off-limits. No action is refused.
 
-<p align="center">
-  <a href="https://github.com/agents-io/PokeClaw/stargazers"><img src="https://img.shields.io/github/stars/agents-io/PokeClaw?style=social" alt="Stars" /></a>
-  <a href="https://github.com/agents-io/PokeClaw/network/members"><img src="https://img.shields.io/github/forks/agents-io/PokeClaw?style=social" alt="Forks" /></a>
-  <a href="https://github.com/agents-io/PokeClaw/issues?q=is%3Aissue+is%3Aclosed"><img src="https://img.shields.io/github/issues-closed/agents-io/PokeClaw?style=social" alt="Closed Issues" /></a>
-  <img src="https://img.shields.io/badge/Android-9%2B-3DDC84?logo=android&logoColor=white" alt="Android 9+" />
-  <a href="https://github.com/agents-io/PokeClaw/releases/latest"><img src="https://img.shields.io/github/v/release/agents-io/PokeClaw" alt="Latest Release" /></a>
-</p>
-
-<p align="center">
-  🌐 <a href="https://agents-io.github.io/PokeClaw/">Landing Page</a> — available in English · हिन्दी · 日本語 · Deutsch · 繁中
-</p>
-
-# PokeClaw (PocketClaw) — On-Device AI Phone Agent
-
-**PokeClaw**, also known as **PocketClaw**, is an open-source Android app for AI phone automation.
-
-It can run Gemma 4 on-device for local, private phone control, and it also supports optional cloud models when you want stronger reasoning for harder tasks.
-
-The current public build is a local-first prototype for turning an Android phone into an AI-operated device.
-
-In Local mode, model execution stays inside your device. No account or API key is required for Local mode.
-
-
-
-```
-Everyone else:  Phone → Internet → Cloud API → Internet → Phone
-                       💳Credit card needed, API key required. Monthly bill attached.
-
-PokeClaw local: Phone → LLM → Phone
-                       Local-first when you want it. Optional cloud when you need it.
-```
-**AI can control your phone, with local-first execution and optional cloud help.**
-
-The current public build is open-source and already handles real chat, task, and automation flows on Android.
-
-Monitor a WhatsApp contact and auto-reply:
-
-
-Context-aware WhatsApp auto-reply:
-
-https://github.com/user-attachments/assets/5a43d4d5-458a-4eea-a0a5-58d113255741
-
-https://github.com/user-attachments/assets/5c2966c5-04e6-4b22-8d66-11915ae62096
-
-> **☝️ Auto-reply demo:** PokeClaw monitors messages from Mom, reads what she said, and replies based on context using the on-device LLM. [Watch in higher resolution on YouTube](https://youtube.com/shorts/Vxpf474chm0)
-
-> **☝️ Context demo:** Mom asks "what did I tell you to bring?" — the AI opens the chat, reads the full conversation on screen, sees the earlier message about wine, and replies correctly. This is the difference between context-aware and context-free replies.
-
-https://github.com/user-attachments/assets/89999dd8-a1be-49ad-9419-60c2b38f6374
-
-
-> **Why is the "hi" demo slow?** That clip was recorded on a CPU-only Android device with no usable GPU or NPU path. Running Gemma 4 E2B on pure CPU takes about 45 seconds to warm up. On stronger phones it is much faster:
-> - **Google Tensor G3/G4** (Pixel 8, Pixel 9)
-> - **Snapdragon 8 Gen 2/3** (Galaxy S24, OnePlus 12)
-> - **Dimensity 9200/9300** (recent MediaTek flagships)
-> - **Snapdragon 7+ Gen 2+** (mid-range with GPU)
->
-> On these devices, warmup drops to seconds. Same model, better hardware.
-
-
-
-
-
-
-
-
-## The Story
-
-I'm building this solo. When Gemma 4 landed with native tool calling on LiteRT-LM, I wanted to know whether a phone could become a real on-device agent instead of just another chatbot. PokeClaw is the result.
-
-The interesting part is not just chatting with a local model. The interesting part is getting a local model to read the screen, choose tools, operate apps, keep task state, and finish real phone workflows. That is exactly what this project is built for.
-
-PokeClaw already supports fully on-device automation with Gemma 4 and optional cloud models for stronger task execution. The current focus is broader device support, more generic skills, more local model options, and a cleaner public release path.
-
-**If you hit something interesting, [open an issue](https://github.com/agents-io/PokeClaw/issues).** Real device reports are how this gets better fast.
-
-## Product Direction
-
-PokeClaw is not just a chat app with a few phone-control tricks glued on top.
-
-At its core, it is becoming a **mobile agent harness**:
-
-- a generic tool layer for phone control
-- a task/runtime loop that lets a model choose and chain those tools
-- playbooks, rules, and guards that can be iterated against real device QA
-- a product shell on top so the same harness is usable by normal people, not just developers
-
-That distinction matters. The long-term goal is not to hardcode one-off app flows forever. The goal is to build the strongest practical harness for AI phone agents on Android, then ship product experiences on top of that foundation.
-
-That is also why the project invests so heavily in:
-
-- generic tools before narrow workflows
-- repeated real-device QA instead of one-off demos
-- Cloud vs Local model comparisons on the same task families
-- playbooks and rules only when the model proves it needs extra structure
-
-That direction affects how bugs are prioritized. PokeClaw should fix deterministic harness, runtime, hardware, storage, accessibility, foreground-service, signing, and QA-runner problems before drilling into one flaky model task.
-
-Examples of harness problems worth fixing immediately:
-
-- the model cannot observe the relevant screen text
-- a tool reports success when it actually failed
-- task state leaks into the next run
-- Accessibility, Notification Access, foreground service, or install/update state is wrong
-- model download, storage, or LiteRT startup fails before the model can run
-- GPU fallback is mislabeled, crashes, or hides the real fallback reason
-
-Examples that should usually be treated as model-performance or exploratory-agent limits unless logs prove otherwise:
-
-- one Cloud model fails one multi-step app flow once
-- one Local model cannot reason through a complex UI path
-- a workflow sometimes succeeds and sometimes fails because the model chooses a weak plan
-- a prompt needs repeated attempts to pick the right cross-app path
-
-Prompts, tools, skills, and playbooks should stay generic. Add structure when it improves a reusable class of tasks; avoid one-off prompt hacks or coordinate scripts just to make a single demo pass.
-
-### Deployment Positioning
-
-There are already strong mobile-agent frameworks for developers, benchmarks, and cloud/desktop-controlled devices. DroidRun/Mobilerun, minitap/mobile-use, Mobile-Agent, and AppAgent-style systems are useful references, especially for planning, UI observation, benchmark design, and failure recovery. They are not the same deployment category as PokeClaw:
-
-- DroidRun/Mobilerun local/open-source runs the agent loop in a Python CLI/container on a host machine and talks to a Portal APK through ADB/port forwarding. The Portal APK uses Android Accessibility for tree/gesture/screenshot capture, but it is not where the local LLM agent loop runs. Its phone-initiated path is cloud-backed.
-- minitap/mobile-use, Mobile-Agent, AppAgent, and AppAgentX are external SDK/research harnesses that normally require Python plus ADB, UIAutomator, screenshots, Docker, cloud phones, or host-side model/API services.
-
-PokeClaw should not try to become another PC/SDK/ADB-driven mobile automation framework. Its product lane is different:
-
-- runs as an Android app on the user's own phone
-- does not require a computer to be connected while tasks run
-- uses Accessibility, Notification Access, foreground service, storage, and Android lifecycle handling inside the phone app
-- runs the task loop inside the installed APK, with local LiteRT-LM or optional cloud LLMs behind the same harness
-- exposes integration points for power users without making Tasker, MacroDroid, ADB, or a cloud phone fleet mandatory
-
-External automation tools are still useful. Tasker, MacroDroid, Locale, and similar apps are good deterministic trigger engines. PokeClaw should let them trigger an AI task, but PokeClaw should remain the phone-resident execution harness.
-
-## See the UI
-
-👉 **[Try the interactive demo on our landing page](https://agents-io.github.io/PokeClaw/)** — click through every screen without installing anything.
+---
 
 ## What it does
 
-The model picks the right tool, fills in the parameters, and executes. You don't configure anything per-app. It just reads the screen and acts.
-
-## Proven Quick Tasks
-
-These are tasks we have already run end-to-end during on-device QA.
-
-### Local mode
-
-- Summarize notifications
-- Explain clipboard contents
-- Analyze storage / apps and suggest cleanup targets
-- Check whether the battery needs charging
-- Report installed apps
-- Report phone temperature
-- Report Bluetooth state
-- Report battery, storage, and Android version
-- Run quick-task cards directly from the UI and return the result in chat
-- Route contact-specific send / call tasks correctly and fail cleanly when the contact does not exist on the device
-
-### Cloud mode
-
-- Send a WhatsApp message and auto-return to the same PokeClaw conversation
-- Search inside YouTube in the real app
-- Check what is trending on Twitter / X and summarize it
-- Install or open Telegram from Play Store
-- Open Reddit and search for `pokeclaw`
-- Copy the latest email subject and Google it
-- Draft an email saying you will be late
-- Preserve task state and session history across cross-app execution and return
-
-## Benchmark & Real-Device QA
-
-Every number below comes from repeated trials on a physical Pixel 8 Pro running release builds. No cherry-picked runs, no emulators. The full verified task list and tier breakdown is in [thoughts/verified-task-capabilities.md](thoughts/verified-task-capabilities.md).
-
-### Cloud (GPT-4.1) — 18/20 pass, real tasks on real phone
-
-| Task | Result | Rounds | What happens |
-|---|---:|---:|---|
-| Search YouTube for lofi beats | ✅ | 9 | Opens YouTube, types query, hits search |
-| Open Chrome and search for weather | ✅ | 9 | Opens Chrome, types query, reads results |
-| Open Chrome and go to reddit.com | ✅ | 7 | URL navigation with node_id targeting |
-| Compose email to test@example.com | ✅ | 12 | Opens Gmail, fills To + Subject + Body |
-| Install Telegram from Play Store | ✅ | 14 | Search + tap Install + wait |
-| Turn on do not disturb | ✅ | 12 | Navigates Settings, toggles DND |
-| Open Settings, go to About Phone | ✅ | varies | Deep settings navigation |
-| Send hi to Mom on WhatsApp | ✅ | 5 | Opens WhatsApp, finds contact, types, sends |
-| Check my Instagram messages | ✅ | 5 | Handles typo ("instagarm"), opens correct app |
-| 部機仲有幾多storage | ✅ | 2 | Cantonese input, returns answer in 中文 |
-| 打開Instagram | ✅ | varies | Chinese command |
-| Draft an email saying I'll be late | ✅ **10/10** | 8 | Repeated trials: 100% pass rate |
-| Copy latest email subject and Google it | ✅ **8/10** | 15 | Gmail to Chrome cross-app flow, 80% pass rate |
-
-All tasks use zero hardcoded app logic. The model reads the screen, picks tools, and figures out the flow on its own. Multi-language works out of the box, including Cantonese, Mandarin, and misspelled English.
-
-### Local (Gemma 4 E2B, fully on-device) — verified on CPU and GPU
-
-| Task family | Result | CPU avg (Pixel 8 Pro) | GPU avg (Pixel 8 Pro) | Notes |
-|---|---:|---:|---:|---|
-| Clipboard explain | ✅ | 2m 43s | 2m 11s | Real clipboard read |
-| Notifications summary | ✅ | 2m 49s | 2m 53s | Reads live notifications and summarizes |
-| Battery advice | ✅ | 2m 12s | 2m 53s | Returns level + charging state |
-| Storage + apps cleanup advice | ✅ | 2m 33s | 3m 06s | Harness used to mislabel this as blocked because the answer mentioned the Contacts app |
-
-For the current `local-core` quick-task bundle on a Pixel 8 Pro, Gemma 4 E2B passed `4/4` on both CPU and GPU. Cold-start average time was `2m 34s` on CPU versus `2m 46s` on GPU, so GPU is now **verified and usable** on this device, but it is **not yet a cold-start speed win** for this short task bundle. The value of the recent hardening work is stability and real backend verification, not inflated benchmark theater.
-
-
-
-## How it works
-
-PokeClaw gives a small on-device LLM a set of tools (tap, swipe, type, open app, send message, enable auto-reply, etc.) and lets it decide what to do. The LLM sees a text representation of the current screen, picks an action, sees the result, picks the next action, until the task is done.
-
-Local execution runs via [LiteRT-LM](https://ai.google.dev/edge/litert/llm/overview) with native tool calling. In Local mode, the model runs on-device.
-
-## Tools
-
-The LLM has access to these tools and picks them autonomously:
-
-| Tool | What it does |
-|------|-------------|
-| `tap` / `swipe` / `long_press` | Touch the screen |
-| `input_text` | Type into any text field |
-| `open_app` | Launch any installed app |
-| `send_message` | Full messaging flow: open app, find contact, type, send |
-| `auto_reply` | Monitor a contact and reply automatically using LLM |
-| `get_screen_info` | Read current UI tree |
-| `take_screenshot` | Capture screen |
-| `finish` | Signal task completion |
-
-These tools are generic — they work with any app, any contact, any language. The LLM picks the right tool and fills in the parameters from your request.
-
-## Tools + Skills
-
-Small on-device models get dramatically better when you give them a strong playbook. So we give PokeClaw reusable skills on top of generic tools.
-
-The auto-reply feature is a good example. It doesn't work by magic — there's a predefined workflow behind it: open the chat → read all visible messages on screen → generate a context-aware reply → send it → go back to home. The model follows this recipe step by step. Every tool in that chain is generic: `open_app` works with any app, `read_screen` works on any screen, `send_message` works with any contact. The workflow just tells the model which tools to use and in what order.
-
-This is what we're calling **Skills** — reusable workflows built from generic tools. We're actively designing a skill system inspired by [Claude Code's skill architecture](https://docs.anthropic.com/en/docs/claude-code/skills). The idea: anyone can write a skill as a simple text file that describes the steps, and the LLM follows it.
-
-Some examples of what skills can do:
-
-- **Auto-reply**: monitor notifications → open chat → read conversation → generate reply → send
-- **Morning briefing**: open weather app → read temperature → open calendar → read today's events → open email → count unread → summarize everything
-- **Smart forward**: catch a notification → open the message → read it → forward to another contact with a summary
-- **Auto-booking**: open a booking app → search for a time slot → fill in details → confirm
-
-Each skill is just a combination of the same generic tools (`open_app`, `tap`, `type`, `read_screen`, `send_message`, etc.) arranged in a specific order. The tools are the building blocks, the skills are the recipes.
-
-Both are designed to be extensible. We're building the first 8-10 skills as built-in defaults. If the system works well, we'll open it up for the community to create and share their own tools and skills. You know your phone better than we do — you should be able to teach it new tricks.
-
-As on-device models get smarter, more of this can become free-form. Right now, skills are how we get reliable automation out of a small local model while keeping the tool layer generic.
-
-## Download
-
-[**Download APK**](https://github.com/agents-io/PokeClaw/releases/latest)
-
-> Note: If you are updating from an older public debug build and Android says the package is incompatible, uninstall the old build once and then install the latest APK fresh. Older public debug builds still receive the in-app update prompt, but they need a one-time reinstall before joining the stable-signed `0.6.x` line.
-
-### Requirements
-
-| | Minimum | Recommended |
-|---|---|---|
-| **Android** | 9+ | 12+ |
-| **Architecture** | arm64 | arm64 |
-| **RAM** | 8 GB | 12 GB+ |
-| **Storage** | 3 GB free (model download) | 5 GB+ |
-| **GPU** | Not required (CPU works) | Tensor G3/G4, Snapdragon 8 Gen 2+, Dimensity 9200+ |
-| **Root** | Not required | Not required |
-
-> ⚠️ 8 GB gets you in the door. 12 GB+ is the sweet spot for the built-in Gemma 4 local models, especially if you want smoother multitasking and faster model bring-up.
+- **Local inference** — drop any GGUF model onto the device and it runs entirely on-device via llama.cpp b4867 (arm64 NEON + dotprod, flash attention)
+- **Cloud cascade** — if no GGUF is loaded, it cascades through every configured provider automatically; dead keys are back-off (401→1 h, 429→5 min) so it never stalls on a burnt key
+- **Phone control** — reads the screen, taps, types, opens apps, replies to messages, runs tasks in the background
+- **Uncensored** — no content policy enforced at the app layer; the model is the only limit
 
 ## Quick start
 
-1. Install the APK
-2. Grant Accessibility permission when prompted
-3. If you want background monitor flows, also grant Notification Access
-4. In Local mode, the model downloads on first local launch (~2.6 GB)
-5. Switch to Chat or Task mode and start using it
-
-Local mode needs no account and no API key. Cloud mode is optional.
-
-## Roadmap
-
-This is the current direction for PokeClaw based on real device testing, open issues, and the most common feature requests.
-
-### Near-term
-
-- **Stabler public releases and upgrades.** The release/signing path is being locked down so future public APKs upgrade cleanly instead of falling back to uninstall/reinstall behavior from the older debug-signed builds.
-- **External automation input.** Tasker, MacroDroid, Locale, and similar Android automation tools are strong deterministic trigger engines. PokeClaw now exposes a production, user-enabled intent API so those tools can decide when to trigger and PokeClaw can handle the open-ended AI task execution. Next work is richer recipes, cancellation/status actions, and Tasker/MacroDroid callback-consumer QA.
-- **Persistent instructions and scoped rules.** PokeClaw needs an inspectable instruction stack: hard platform/tool safety in code, user global instructions, app/channel-scoped rules, explicit user-approved memory, then the current task prompt. Screen, notification, and web content should remain untrusted context, not higher-priority instructions.
-- **Missed-call auto follow-up.** A high-priority use case is: someone calls, you miss it, and PokeClaw automatically sends a follow-up message to that caller and keeps the status visible in the same chatroom. The preferred first path is SMS/API-first. WhatsApp follow-up is only worth adding if there is a reliable non-UI route; otherwise it should stay an explicit fallback path, not the core design.
-- **Lower-RAM local model options.** Right now the built-in local model choices are still too heavy for a lot of mid-range phones. Smaller on-device models are high priority.
-- **More small local models for real device coverage.** 1B–1.5B class models for lower-end phones are on the roadmap so more devices can at least run a usable local agent instead of being locked out by RAM limits.
-- **More reliable local model downloads.** Resume/retry behavior, partial download cleanup, and corrupted-model detection are all being hardened so downloads survive weak connections and screen-off/resume cases better.
-- **Broader device compatibility.** Samsung, Xiaomi, Dimensity, and low-RAM device issues are being used as real-world test cases for GPU→CPU fallback, model loading, accessibility reconnects, and generic UI control.
-- **More generic phone-control skills.** We are continuing to replace brittle, app-specific assumptions with generic tools and reusable skills so tasks survive OEM UI changes better.
-
-### In progress
-
-- **Import your own local `.litertlm` models.** User-accessible local model import is on the roadmap so you can bring your own LiteRT model instead of being locked to the built-in download list.
-- **Custom local model sources.** We want PokeClaw to go beyond a fixed built-in catalog and support user-defined model sources, including direct downloads from Hugging Face or other hosted URLs.
-- **Google AI Core / system local AI integration.** We are tracking Android's newer on-device AI stack so PokeClaw can eventually use official system-level local model APIs where they make sense, instead of relying on a single runtime path forever.
-- **More built-in workflows.** More quick-task / skill coverage is planned beyond the first WhatsApp-centric workflows.
-- **Remote control / remote conversation flows.** Controlling a phone from another device is a real request. Telegram bot control is the first concrete path being tested; it needs clear token setup, polling status, and true end-to-end QA with an account that can start and message the bot.
-- **Voice input.** A microphone button is a useful prompt input path. The first version should be explicit push-to-talk; wake-word/background listening needs a separate privacy, permission, and battery design.
-
-### Known platform constraints
-
-- **Edge Gallery model detection is not fully under our control.** Android hides other apps' `Android/data/...` sandboxes from normal file-pickers, so PokeClaw cannot generically "see" Edge Gallery's downloaded models unless they are exported into a user-accessible location first.
-- **GPU support is runtime and device specific.** If a device can run GPU in another app but PokeClaw falls back to CPU, the next step is a debug report with device, ROM, model, selected backend, delegate init, and fallback logs. PokeClaw should keep CPU fallback safe and truthful instead of forcing GPU blindly.
-- **Sideload + accessibility apps may trigger OEM security warnings.** Samsung / Play Protect warnings are being addressed through a cleaner release/signing path, but sideload trust prompts are partly controlled by the platform and OEM policy.
-- **Cloud mobile-agent harnesses already exist.** PokeClaw should not compete as a cloud phone farm or desktop-controlled ADB framework. The durable product direction is a phone-resident Android harness that can run on the user's own device, slot local or cloud models, and survive real Accessibility, Notification, storage, permission, and OEM lifecycle constraints.
-- **Telegram bot control requires a writable account state.** A Telegram bot cannot cold-message a user who has not started the bot, and a frozen/read-only Telegram account cannot complete the required `/start` or task-message step. Treat this as an environment blocker, not a PokeClaw channel failure.
-
-### External Automation API
-
-PokeClaw exposes a user-enabled Android intent entrypoint for Tasker, MacroDroid, Locale, ADB, and other trusted local automation tools.
-
-The setting is off by default. Enable it from `Settings -> Remote Control -> External Automation`.
-
-#### MacroDroid verified E2E
-
-The external automation contract is designed for Tasker, MacroDroid, Locale, and similar Android automation apps. The verified end-to-end path today is MacroDroid.
-
-Verified on a Pixel 8 Pro on 2026-04-30:
-
-- MacroDroid macro trigger: `Shortcut Launched`
-- MacroDroid action: `Send Intent`
-- Intent target: `Activity`
-- Intent action: `io.agents.pokeclaw.RUN_TASK`
-- Package: `io.agents.pokeclaw`
-- Class: `io.agents.pokeclaw.automation.ExternalAutomationActivity`
-- Extra: `task = how much battery left`
-- Result: MacroDroid launched PokeClaw's automation activity, PokeClaw accepted it, executed the deterministic battery tool, and returned a live battery result in the PokeClaw chatroom.
-
-MacroDroid setup:
-
-1. In PokeClaw, enable `Settings -> Remote Control -> External Automation`.
-2. In MacroDroid, create a new macro.
-3. Add any trigger you want. For a simple smoke test, use `User Input -> Shortcut Launched`.
-4. Add action `Device Actions -> Send Intent`.
-5. Set `Target` to `Activity`.
-6. Set `Action` to `io.agents.pokeclaw.RUN_TASK`.
-7. Set `Package` to `io.agents.pokeclaw`.
-8. Set `Class` to `io.agents.pokeclaw.automation.ExternalAutomationActivity`.
-9. Set `Extra 1` name to `task`.
-10. Set `Extra 1` value to the task text, for example `how much battery left`.
-11. Save the macro, then run MacroDroid's `Test macro`.
-
-Expected result: PokeClaw opens, records the task in the chatroom, runs the task through the normal harness, and shows the result. The intent does not bypass PokeClaw safety, permissions, or tool rules.
-
-For chat instead of task mode, use:
-
-- Intent action: `io.agents.pokeclaw.RUN_CHAT`
-- Extra name: `chat`
-- Extra value: the chat message
-
-The same pattern should work from Tasker or Locale-style tools as long as they launch the exported PokeClaw automation activity with an explicit package/class. The broadcast receiver is still available for ADB and compatible callers, but Android can block a background broadcast receiver from opening an activity on modern target SDKs.
-
-Task example:
+### 1. Build and install
 
 ```bash
-adb shell am broadcast \
-  -a io.agents.pokeclaw.RUN_TASK \
-  -p io.agents.pokeclaw \
-  --es task "Summarize my notifications and tell me what is urgent"
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/*.apk
 ```
 
-Chat example:
+Requires Android 9+ (API 28), arm64-v8a or x86_64.
+
+### 2. Push API keys (optional — needed for cloud cascade)
+
+Create `pika-hermes.env` in the app's external dir or on the SD card:
 
 ```bash
-adb shell am broadcast \
-  -a io.agents.pokeclaw.RUN_CHAT \
-  -p io.agents.pokeclaw \
-  --es chat "What can you see on my phone right now?"
+adb push pika-hermes.env /sdcard/Android/data/io.agents.pokeclaw/files/pika-hermes.env
 ```
 
-Supported extras:
+Supported keys:
 
-- `task` / `task_b64`
-- `chat` / `chat_b64`
-- `request_id`
-- `return_action`
-- `return_package`
+```env
+AI_DEEPSEEK_KEY=sk-...
+AI_GROQ_KEY=gsk_...
+AI_GEMINI_KEY=AIza...,AIza...,AIza...    # comma-separated for 21-key rotation
+AI_OPENROUTER_KEY=sk-or-...
+AI_MISTRAL_KEY=...
+```
 
-If `return_action` is provided, PokeClaw sends callback broadcasts with `status`, `request_id`, and either `result` or `error`. Current statuses are `accepted`, `completed`, `failed`, `cancelled`, `blocked`, and `rejected`. `RUN_TASK` sends `accepted` plus a terminal callback; `RUN_CHAT` currently sends only the immediate `accepted` callback.
+Then open **Settings → Import .env** in the app, or it auto-imports on launch if the file is present.
 
-### Where feature requests go
+### 3. Download a model (optional — needed for local/offline inference)
 
-If you want something added, please open an issue. The roadmap above is intentionally built from real requests like:
+Open **Settings → Local Model → Download** and pick one:
 
-- missed-call auto follow-up messages
-- smaller local models for lower-end phones
-- importing your own local models
-- custom local model sources / hosted downloads
-- Android AI Core / official on-device AI support
-- Prompt from Intent / Tasker / MacroDroid integration
-- persistent global instructions, scoped app rules, and explicit memory
-- voice input and push-to-talk prompting
-- Telegram bot remote control
-- cleaner upgrade/install paths
-- remote control from another phone
-- broader distribution paths like F-Droid
+| Model | Size | RAM | Notes |
+|---|---|---|---|
+| ★ Gemma 2 2B Abliterated | 1.7 GB | 4 GB+ | Fastest, best for 4-6 GB RAM devices |
+| Phi-3.5 Mini 3.8B | 2.4 GB | 4 GB+ | Lightweight, good reasoning |
+| Llama 3.2 3B Uncensored | 2.0 GB | 6 GB+ | Uncensored |
+| Gemma 4 E4B Uncensored | 5.3 GB | 8 GB+ | Larger context, more capable |
+| Dolphin 2.9 Llama3 8B | 4.9 GB | 8 GB+ | Strong general use |
 
-## Help Wanted
+Or push a GGUF directly via ADB:
 
-PokeClaw is moving fast, and the roadmap is being shaped directly by real device reports, feature requests, and QA results. If you want to help push local phone agents forward:
+```bash
+adb push my-model.gguf /sdcard/Android/data/io.agents.pokeclaw/files/models/gguf/my-model.gguf
+```
 
-- ⭐ **[Star this repo](https://github.com/agents-io/PokeClaw)** if you think local AI phone control matters
-- 🐛 **[Open an issue](https://github.com/agents-io/PokeClaw/issues)** when you hit a bug or want a feature
-- 🍴 **[Fork it](https://github.com/agents-io/PokeClaw/fork)** and build on it
+The app auto-detects any `.gguf` file in that directory.
 
-Every star helps more people find the project. Every issue helps shape the next release.
+## Architecture
 
-## Changelog
+```
+pika-hermes
+├── agent/
+│   ├── llm/
+│   │   ├── llama/          ← llama.cpp JNI backend (LlamaBackend + LlamaEngine)
+│   │   ├── CascadingLlmClient.kt   ← 40-provider cloud cascade with dead-key backoff
+│   │   ├── GgufModelManager.kt     ← model catalog + download + local scan
+│   │   └── EnvImporter.kt          ← .env parser → KVUtils store
+│   └── DefaultAgentService.kt      ← main agent loop + tool execution
+├── cpp/
+│   ├── llama_jni.cpp       ← JNI bridge (nativeLoadModel / nativeComplete / nativeRelease)
+│   └── CMakeLists.txt      ← downloads llama.cpp b4867 at build time
+└── ui/
+    ├── chat/               ← chat session controller (LLAMA/LOCAL/CLOUD routing)
+    └── settings/           ← model download UI, key import, provider config
+```
 
-### v0.7.1 (2026-05-26) — hotfix: global prompt actually flows now
+## Provider cascade order
 
-- **Fix for #45 Persistent Global Instructions** — v0.7.0 saved your global prompt to MMKV but never injected it into any LLM call. The injection helper was wired into `AgentConfig.Builder.build()` but the runtime construction path is `ResolvedModelConfig.toAgentConfig()` which uses the data class constructor directly. Verified via in-app logs: zero `PromptUtils` entries on v0.7.0 even with the prompt set. v0.7.1 also injects in `toAgentConfig` so the global prompt now reaches every cloud + local LLM call.
+1. **DeepSeek** — cheapest, fast
+2. **Groq** — free tier, fast
+3. **Gemini** — 21-key rotation (free tier × 21)
+4. **OpenRouter** — multi-model gateway
+5. **Mistral** — EU-hosted
+6. **Keyless proxies** — community endpoints
+7. **Public Ollama** — local network / desktop bridge
 
-### v0.7.0 (2026-05-26) — feature batch
+## Permissions required
 
-- **Voice input in chat (#44).** New mic button between the text field and the send button launches Android's built-in speech recognition; the transcript appends to whatever you already typed, so you can dictate the second half of a prompt. Works on any device with Google Speech Services; falls back gracefully with a toast on devices without it. No RECORD_AUDIO permission is requested by PokeClaw — the system dialog handles its own permission.
-- **Persistent global instructions (#45).** New Settings entry under "Models" → "Global instructions". Anything you put here is prepended to every conversation's system prompt — useful for "always reply in Cantonese" or "I'm in Vancouver, default to PST" style rules. Up to 2000 characters; clear the field to disable. Applies to both chat mode and task/agent mode.
-- **Custom local model download URL (#36).** Advanced Settings entry: point PokeClaw at a self-supplied `.litertlm` URL (HuggingFace mirror, your own server, etc.) and it appears as a new row in the Available Models list alongside the built-in Gemma options. File-size validation is relaxed for custom models because we can't know the expected size up front.
-- **Pencil-icon rename shortcut in the sidebar.** Each saved conversation now shows a small edit icon next to its title; tap to rename without having to long-press. Long-press menu still works for delete.
-- **Floating button uses the PokeClaw icon** instead of the "AI" text label.
-- **Debug report includes GPU / OpenCL / RAM / ABI diagnostics** (#41 / #14). Summary now lists supported ABIs, total RAM, and whether `libOpenCL.so` is present at any of the well-known driver paths — community OEM reporters can self-diagnose GPU-path issues without a back-and-forth.
-- **i18n for new features.** Voice input, global prompt, and custom model URL strings shipped in English, Simplified Chinese, and Japanese.
-
-### v0.6.12 (2026-04-30)
-- **Hotfix for Android background activity launch limits.** External automation now has an exported activity entrypoint for MacroDroid, Tasker, and Locale-style apps, avoiding Android 16 / targetSdk 36 background launch blocking when a broadcast receiver tries to open the chatroom.
-- **MacroDroid setup now uses Activity target.** The verified setup launches `io.agents.pokeclaw.automation.ExternalAutomationActivity` with `RUN_TASK` / `RUN_CHAT` and the same `task` / `chat` extras.
-- **Broadcast support remains available.** The broadcast receiver is still present for ADB and compatible callers, but app-based automation should prefer the Activity target on modern Android.
-- **Install note for early testers.** If Android reports a package/signature conflict from an older debug or early signed APK, uninstall that old build once and then install this stable signed release.
-
-### v0.6.11 (2026-04-30)
-- **External Automation is now a production feature.** PokeClaw exposes user-enabled `RUN_TASK` and `RUN_CHAT` Android broadcast entrypoints for MacroDroid, Tasker, Locale-style automation apps, and ADB callers.
-- **MacroDroid E2E is verified.** A real MacroDroid `Send Intent` macro successfully triggered PokeClaw, ran `how much battery left`, and returned the live battery result in the PokeClaw chatroom.
-- **External task intents no longer wait on chat model readiness.** Task payloads now go straight through the task harness, so deterministic/direct tasks can run even on a clean install with no LLM selected.
-- **Direct device-data tasks run before LLM/accessibility gates.** Requests such as battery status now use the deterministic device-data tool first instead of being blocked by missing model config when the task does not need an LLM.
-- **External Automation has a safe opt-in UI.** `Settings -> Remote Control -> External Automation` is off by default and shows a confirmation before allowing trusted local automation apps to call PokeClaw.
-- **Callback contract is in place.** `RUN_TASK` supports immediate `accepted` and terminal `completed` / `failed` / `cancelled` / `blocked` / `rejected` callback statuses when callers provide a return action. True callback-consumer E2E remains open for a Tasker/MacroDroid receiver profile.
-- **Product direction is clearer.** The README now records the no-PC, phone-resident, local-first harness lane and distinguishes PokeClaw from PC/ADB/cloud mobile-agent frameworks.
-- **Install note for early testers.** If Android reports a package/signature conflict from an older debug or early signed APK, uninstall that old build once and then install this stable signed release.
-
-### v0.6.10 (2026-04-28)
-- **Model storage hotfix for ROM-specific download failures.** PokeClaw now requires the selected model directory to be writable, not merely present, before using it for large `.litertlm` downloads.
-- **External storage fallback is safer.** If the external app-files `models` directory cannot be created or written on a device/ROM, PokeClaw falls back to internal app storage instead of failing later with `ENOENT` while opening the `.downloading` file.
-- **Bug reports now expose model storage state.** `Settings -> About -> Report a Bug` includes the selected, external, and internal model directories, their readable/writable/stat status, and any storage-selection error.
-- **Local model logs are easier to triage.** Bug-report logcat capture now includes `LocalModelManager`, so download/storage failures carry the storage decision path.
-- **Release gate is now formalized.** `QA_CHECKLIST.md` now has a per-release gate record template so future releases must explicitly record direction, harness, scope, build/test, artifact, device-smoke, distribution, and user-followup status.
-- **Install note for early testers.** If Android reports a package/signature conflict from an older debug or early signed APK, uninstall that old build once and then install this stable signed release.
-
-### v0.6.9 (2026-04-28)
-- **Hotfix release for the latest user-reported task failures.** This is a focused signed release for fixes that were verified after the v0.6.8 catch-up release; the remaining exploratory QA gaps are still tracked instead of hidden.
-- **WhatsApp direct send is more reliable.** Literal commands such as `send hi to Girlfriend on WhatsApp` now route straight to the direct `send_message` tool, and the focused Pixel 8 Pro regression for the wrong-chat send path now passes.
-- **Direct tool execution no longer blocks the app thread.** Direct tool tasks now run off the receiver/main path, preserve their real `ToolResult`, and always clean up task state, which prevents a class of ANR-style failures during quick tasks.
-- **Foreground service startup is safer on aggressive Android builds.** PokeClaw now enters foreground state immediately when the service is created if notification permission is available, reducing `ForegroundServiceDidNotStartInTimeException` crashes when a task exits early.
-- **WhatsApp contact lookup avoids a false close-button match.** The contact picker no longer treats generic top-right image buttons, such as WhatsApp overflow controls, as close buttons unless the UI exposes a clear close/dismiss/cancel signal.
-- **QA automation is stricter and cleaner.** The quick-task runner now cancels stale tasks between cases, dismisses stale ANR dialogs, waits for Accessibility readiness, resets foreground state, and marks `Failed:` task answers as real failures.
-- **Known remaining QA gaps.** The post-fix Cloud sweep was `17 PASS / 0 FAIL / 1 BLOCKED / 2 TIMEOUT / 20 TOTAL`; WhatsApp latest-chat summary and copy-latest-email-subject-to-Google still time out, and one call task remains blocked by missing test contact data.
-- **Install note for early testers.** If Android reports a package/signature conflict from an older debug or early signed APK, uninstall that old build once and then install this stable signed release.
-
-### v0.6.8 (2026-04-28)
-- **Stable public catch-up release.** This promotes the recent debug-report and local-model hardening work into a stable signed release so users can test one current APK instead of chasing debug prereleases.
-- **Model download storage is more reliable.** Fixed a device-side failure where the model download directory could be missing on some ROMs, causing downloads to fail with `ENOENT` before the `.litertlm` file could even be written.
-- **WhatsApp send-message is less likely to hit the wrong action.** The send-button matcher now requires either a clear send signal or a button positioned by the composer, which avoids treating top-bar call/video-call buttons as generic send candidates.
-- **Contact lookup handles blocking popups better.** The contact-search flow now attempts to dismiss obvious modal overlays before searching or scrolling the chat list.
-- **Foreground service coverage is stronger during tasks and monitoring.** PokeClaw now starts foreground status as soon as a task begins, and active monitor mode schedules the watchdog job so ROMs that aggressively kill services have a better recovery path.
-- **Bug reports are easier to act on.** `Settings -> About -> Report a Bug` generates a ZIP with app state, filtered logcat, rolling app logs, and recent HTTP logs for device-specific model, download, accessibility, and monitor failures.
-- **Release automation is cleaner.** Main-branch pushes now build debug artifacts without creating public debug prereleases, while public APK releases go through the signed tag workflow.
-
-### v0.6.6 (2026-04-17)
-- **Stable release for the post-`0.6.4` bugfix line.** This ships the fixes that were only sitting in the `0.6.5` debug prerelease, so users no longer need to test a debug cut to get them.
-- **Launcher icon handling is fixed on themed / OEM launchers.** PokeClaw now ships a proper adaptive icon set, including round and monochrome resources, which fixes the mismatched icon treatment reported on Xiaomi launchers.
-- **Local backend health is more truthful.** GPU paths are only treated as healthy after real runtime verification, and stale CPU-safe quarantines can re-arm a previously verified GPU path instead of leaving the device stuck on CPU forever.
-- **Debug reports carry more state for triage.** Monitor and notification-listener connection state now show up in the report, which makes the unresolved device-specific local-runtime bugs easier to diagnose.
-- **Legacy test coverage is back in sync.** `LocalBackendHealthTest` now matches the current crash-marker API again, so the release branch passes its backend-health unit tests instead of failing on stale constructor calls.
-
-### v0.6.0 (2026-04-11)
-- **Mainline release hardening.** Cloud and Local chat/task flows were tightened before release instead of shipping more speculative features on top.
-- **Cloud task routing is less fragile.** Ordinary chat prompts like `say hi` no longer misroute into send-message behavior, while Cloud task flows still retain their multi-step capability.
-- **Local chat continuity is materially better.** The on-device chat session now restores visible conversation history after session rebuilds and app relaunches, instead of silently losing the earlier turns.
-- **Cloud and Local relaunch continuity are now verified.** Same-conversation memory survives a full force-stop/relaunch on both Cloud and Local paths.
-- **Direct device-data tasks are more truthful.** Clipboard, notifications, battery, storage, and installed-app questions use the real device tools instead of generic chatbot refusals.
-- **Models and settings are more honest.** The Models page now separates `Active model`, `Default local model`, and `Default cloud model`, and linked built-in Gemma rows no longer pretend the model is missing when the file is already usable.
-- **Cloud model switching is cleaner.** Switching cloud models now emits one clear system line instead of duplicate switch messages.
-- **Task/process UI is less noisy.** Normal chat no longer shows the orange `Task running...` bar, while true long-running work still shows the correct active state.
-- **Local session ownership is hardened.** Chat-side local loading now stands down while a Local task owns the LiteRT session, preventing the old `session already exists` race.
-- **Cloud release QA now uses success rate, not single-run theater.** The headline compose task passed `10/10`, and the Gmail-subject-to-Google exploratory task passed `8/10`, which is the right standard for stochastic Cloud flows.
-
-### v0.5.1 (2026-04-10)
-- **Chat/task input is more robust across phones.** The bottom input bar now follows the keyboard and system inset directly instead of relying on outer layout resize, which is safer across Pixel/Samsung navigation modes.
-- **Public release signing is now pinned to a stable path.** GitHub releases now refuse to publish unless a stable signing key is configured, and the release workflow builds a signed `release` APK instead of accidentally shipping a debug artifact.
-- **Release artifacts now include checksums.** The release pipeline also uploads `SHA256SUMS.txt` alongside the APK for easier verification.
-
-### v0.5.0 (2026-04-10)
-- **Previously shipped task flows now actually work.** Fixed stale model config reuse after switching Local/Cloud, fixed task/chat tab drift, fixed accessibility reconnect races, and fixed local task cancellation/session cleanup so tasks return to the right conversation instead of leaving stale state behind.
-- **Previously broken task completions now execute the real app flow.** Explicit email-compose tasks now open a real mail composer instead of stopping with draft text in chat, and in-app search tasks can no longer fake-complete before the query is actually typed on screen.
-- **Quick-task QA expanded.** Local quick tasks were swept end-to-end on-device, Cloud quick tasks now have cleaner automated coverage, and the QA runner correctly distinguishes real failures from environment blockers like permission dialogs or missing contacts.
-- **Task budget default is now unlimited.** Fresh installs no longer inherit a fake default cap during development; users can still set a manual token/cost budget in Settings if they want one.
-- **Previously misleading status rows now tell the truth.** Local GPU→CPU fallback now shows the real backend, the Accessibility status row reflects the real system state, and the Task Budget row shows `Unlimited` when no manual budget is set.
-- **The updater now covers more real-world installs.** From v0.5.0 onward, accidental debug-build users also get the once-per-day GitHub release check, and the dialog warns when Android may require uninstalling an old debug build before installing the new APK.
-- **Verified release-upgrade behavior.** Older public `0.4.0` builds do show the `v0.5.0` in-app update prompt, but upgrading from the old public debug signing path to the new public APK is a one-time uninstall + reinstall instead of an in-place replace.
-
-<details>
-<summary>Older versions (v0.1.0 — v0.4.1)</summary>
-
-### v0.4.1 (2026-04-08)
-- **Experimental task badge.** Task tab now shows `Experimental — more workflows coming soon`.
-- **12 new complex task QA cases.** Added broader Cloud task coverage for YouTube search, contextual messaging, screen reading, settings toggles, app installs, web search, email compose, camera flows, typo tolerance, and ambiguous requests.
-
-### v0.3.2 (2026-04-07)
-- **Security fix.** Debug task receivers now disabled in release builds. External apps can no longer trigger tasks via broadcast.
-- **Security fix.** The LAN config server was binding to all network interfaces, exposing API keys to anyone on the same WiFi. Now binds to localhost only.
-
-### v0.3.0 (2026-04-07)
-- **Cloud LLM support.** Chat and task modes now work with OpenAI, Anthropic, Google, and any OpenAI-compatible API. Switch providers with one tap in the new tabbed LLM Config screen.
-- **Real-time token and cost display.** See your token count and running cost in the chat header as you talk. Color shifts from grey to blue to amber to red as usage climbs. No other mobile AI app shows you this.
-- **Per-provider API keys.** Store a different API key for each provider. Switching tabs loads the right key automatically.
-- **Mid-session model switch.** Start a conversation with GPT-4o, switch to Claude mid-chat, and keep your entire history. The new model picks up where the old one left off.
-- **3-tier pipeline router.** Simple commands (call, alarm, open app) now execute instantly with zero LLM calls. Skill-matched tasks run deterministic step sequences. Only complex tasks hit the full agent loop.
-- **8 built-in skills.** Search in App, Dismiss Popup, Scroll and Read, Send WhatsApp, Navigate to Tab, and more. Each skill saves 3-10 LLM rounds by running a hardcoded tool sequence instead of reasoning from scratch.
-- **Skills UI in Task tab.** Quick Actions section shows all available skills with category icons. Tap to prefill the input bar.
-- **Token budget system.** Set soft and hard limits on token usage per task. The floating pill shows live token count and cost, and you can tap to stop a runaway task.
-- **Stuck detection.** Five signals detect when the agent is going in circles: repeated actions, unchanged screens, rising token count. Three-level recovery escalates from hints to strategy switches to auto-kill.
-- **Enter and Tab key support.** Skills can now press Enter to submit search queries and Tab to move between form fields.
-
-### v0.2.4 (2026-04-06)
-- **Task tab redesigned with skill cards.** No more typing free-form commands that Gemma misunderstands. Two skill cards with fill-in-the-blank forms: "Monitor [name] on [WhatsApp]" and "Send [message] to [name] on [WhatsApp]".
-- **Java skill routing.** Monitor and send-message tasks bypass the LLM entirely. Instant activation, zero warmup.
-- **Progress bar on skill activation.** Card fills up and turns orange when active. You know exactly when monitoring starts.
-- **Custom tasks disabled for on-device models.** Gemma is not smart enough to route free-form tasks to the right skill. Switch to a cloud LLM in Settings to unlock the text input.
-- **Tasks stay in-app.** Starting a task no longer jumps to the home screen. You see progress in PokeClaw, then it goes to background when ready.
-
-### v0.2.0 (2026-04-06)
-- **Auto-reply now reads conversation context.** Before replying, the AI opens the chatroom and reads all visible messages on screen. It no longer forgets what was said 3 messages ago.
-- **In-app update checker.** The app checks GitHub Releases once per day and prompts you to download if a newer version exists. No more manually checking.
-
-### v0.1.0 (2026-04-06)
-- Initial release. On-device Gemma 4 E2B with tool calling, accessibility-based phone control, auto-reply, task mode.
-
-</details>
-
-## Acknowledgments
-
-PokeClaw exists because of [Gemma 4](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/) by [Google DeepMind](https://github.com/google-deepmind). Thank you to [Clément Farabet](https://github.com/clementfarabet), [Olivier Lacombe](https://github.com/olivierlacombe), and the entire Gemma team for shipping an open model with native tool calling under Apache 2.0. You made it possible for a solo developer to build a working phone agent in two nights. The [LiteRT-LM](https://ai.google.dev/edge/litert/llm/overview) runtime is what makes on-device inference practical.
-
-Also inspired by the [OpenClaw](https://github.com/openclaw/openclaw) community 🦞 for proving that AI agents that actually do things are what people want.
-
-And thank you to [Claude Code](https://claude.ai/code) by Anthropic. I'm a CS dropout with zero Android development experience. Claude Code made it possible for me to go from nothing to a working app in two nights. The future is wild.
-
-## Trademark
-
-PokeClaw is a trademark of Nicole / agents.io. The name "PokeClaw" and the PokeClaw logo may not be used to endorse or promote products derived from this software without prior written permission. Forks must be renamed before distribution.
+- `RECORD_AUDIO` — voice input
+- `BIND_ACCESSIBILITY_SERVICE` — screen reading and tap automation
+- `BIND_NOTIFICATION_LISTENER_SERVICE` — notification monitoring and auto-reply
+- `FOREGROUND_SERVICE` — background task execution
+- `INTERNET` — cloud API calls
 
 ## License
 
-Apache 2.0
-
-Contributors sign our [CLA](CLA.md) before their first PR is merged.
+Apache 2.0 — see [LICENSE](LICENSE)

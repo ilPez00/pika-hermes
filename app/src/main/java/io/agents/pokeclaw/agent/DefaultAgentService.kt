@@ -9,6 +9,7 @@ import android.view.WindowManager
 import io.agents.pokeclaw.ClawApplication
 import io.agents.pokeclaw.R
 import io.agents.pokeclaw.agent.langchain.LangChain4jToolBridge
+import io.agents.pokeclaw.agent.knowledge.KBManager
 import io.agents.pokeclaw.agent.llm.LlmClient
 import io.agents.pokeclaw.agent.llm.LlmClientFactory
 import io.agents.pokeclaw.agent.llm.LlmResponse
@@ -263,6 +264,25 @@ class DefaultAgentService : AgentService {
         return sb.toString()
     }
 
+    // ==================== Memory Injection ====================
+
+    private fun buildMemorySection(query: String): String {
+        return try {
+            val keywords = query.split(Regex("\\s+")).filter { it.length > 3 }.take(3)
+            val results = keywords.flatMap { kw ->
+                KBManager.search(kw).getOrElse { emptyList() }
+            }.distinctBy { it.path }.sortedByDescending { it.modified }.take(4)
+            if (results.isEmpty()) return ""
+            val sb = StringBuilder("\n\n## Relevant Memory\n")
+            results.forEach { r -> sb.append("- [${r.path}] ${r.snippet}\n") }
+            XLog.d(TAG, "memory injected: ${results.size} snippets for query='$query'")
+            sb.toString()
+        } catch (e: Exception) {
+            XLog.w(TAG, "memory injection failed: ${e.message}")
+            ""
+        }
+    }
+
     // ==================== LLM Call (with retry) ====================
 
     private fun chatWithRetry(messages: List<ChatMessage>, callback: AgentCallback, iteration: Int): LlmResponse {
@@ -465,6 +485,8 @@ class DefaultAgentService : AgentService {
             } else ""
         } else ""
 
+        val memorySection = buildMemorySection(rawUserRequest)
+
         val fullSystemPrompt = buildString {
             append(basePrompt)
             append(playbookSection)
@@ -472,6 +494,7 @@ class DefaultAgentService : AgentService {
             append(emailComposeGuard.buildPromptSection())
             append(directDeviceDataGuard.buildPromptSection())
             append(buildDeviceContext())
+            if (memorySection.isNotEmpty()) append(memorySection)
         }
 
         val messages = mutableListOf<ChatMessage>()

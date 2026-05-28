@@ -18,14 +18,29 @@ object LlmClientFactory {
             }
         }
         return when (config.provider) {
-            LlmProvider.OPENAI -> OpenAiLlmClient(config, httpClientBuilder)
+            // For cloud providers: wrap in cascade so failed keys auto-retry next provider
+            LlmProvider.OPENAI -> {
+                if (CascadingLlmClient.hasAnyKey()) {
+                    CascadingLlmClient(httpClientBuilder, config)
+                } else {
+                    OpenAiLlmClient(config, httpClientBuilder)
+                }
+            }
             LlmProvider.ANTHROPIC -> AnthropicLlmClient(config, httpClientBuilder)
-            LlmProvider.LOCAL -> LocalLlmClient(config)
-            LlmProvider.LLAMA -> LlamaBackend(
-                modelPath = config.baseUrl,
-                nCtx = 4096,
-                maxTokens = 2048,
-            )
+            LlmProvider.LOCAL     -> LocalLlmClient(config)
+            LlmProvider.LLAMA     -> {
+                val modelPath = config.baseUrl
+                if (modelPath.isNotEmpty() && java.io.File(modelPath).exists()) {
+                    LlamaBackend(modelPath = modelPath, nCtx = 4096, maxTokens = 2048)
+                } else {
+                    // No valid GGUF path — fall back to cascade / cloud
+                    if (CascadingLlmClient.hasAnyKey()) {
+                        CascadingLlmClient(httpClientBuilder, config)
+                    } else {
+                        OpenAiLlmClient(config, httpClientBuilder)
+                    }
+                }
+            }
         }
     }
 }
