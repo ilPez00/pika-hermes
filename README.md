@@ -99,6 +99,20 @@ pika-hermes
 - `FOREGROUND_SERVICE` — background task execution
 - `INTERNET` — cloud API calls
 
+## Changelog
+
+### v0.1.0 — 2026-06-10
+
+First public release of pika-hermes.
+
+- Local GGUF inference via llama.cpp b4867 (arm64 NEON + dotprod, flash attention)
+- 40-provider cloud cascade (DeepSeek → Groq → Gemini × 21 → OpenRouter → Mistral → keyless proxies → public Ollama)
+- Dead-key backoff (401→1 h, 429→5 min, 503→1 min)
+- .env file import for API keys
+- In-app model download and management
+- Phone control via accessibility service
+- Uncensored — no content policy at the app layer
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE)

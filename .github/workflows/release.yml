@@ -52,7 +52,7 @@ jobs:
             exit 1
           fi
 
-          KEYSTORE_PATH="$RUNNER_TEMP/pokeclaw-release.keystore"
+          KEYSTORE_PATH="$RUNNER_TEMP/pika-hermes-release.keystore"
           echo "$ANDROID_KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
 
           cat > local.properties <<EOF
