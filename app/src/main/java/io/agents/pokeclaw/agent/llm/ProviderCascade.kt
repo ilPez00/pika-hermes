@@ -71,6 +71,12 @@ class CascadingLlmClient(
         val miKey = KVUtils.getString(KEY_MISTRAL, "")
         if (miKey.isNotEmpty()) list += ProviderSlot("mistral", EP_MISTRAL, miKey, "mistral-small-latest")
 
+        // FCM local proxy (localhost:19280/v1) — routes through 170+ free coding
+        // models with auto failover. Falls through if daemon isn't running.
+        // For Android emulator use 10.0.2.2 (host loopback); for real device
+        // use `adb reverse tcp:19280 tcp:19280` so localhost works on-device.
+        list += ProviderSlot("fcm",        "http://localhost:19280/v1",      "fcm-local",  "fcm",                   isKeyless = true)
+
         // 6. Keyless proxies
         list += ProviderSlot("llm7",       EP_LLM7,       "none", "gpt-4o-mini",            isKeyless = true)
         list += ProviderSlot("airforce",   EP_AIRFORCE,   "none", "gpt-4o-mini",             isKeyless = true)
