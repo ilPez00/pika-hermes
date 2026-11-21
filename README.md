@@ -4,6 +4,13 @@
 
 ---
 
+
+> **For evaluators.** Offline-first Android phone agent: any GGUF model runs on-device
+> via llama.cpp (arm64 NEON + dotprod, flash attention); the 40-provider cloud cascade is
+> optional fallback, active only when configured. Phone control reads the screen and acts
+> through the app's Android permissions. Built on a fork — the local execution path and
+> provider fallback are original work; the codebase is not (attribution below).
+
 ## What it does
 
 - **Local inference** — drop any GGUF model onto the device and it runs entirely on-device via llama.cpp b4867 (arm64 NEON + dotprod, flash attention)
